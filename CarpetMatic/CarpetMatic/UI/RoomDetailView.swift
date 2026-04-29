@@ -47,6 +47,22 @@ struct RoomDetailView: View {
             } footer: {
                 stripsFooter
             }
+
+            Section {
+                RoomLayoutView(
+                    widthCM: room.widthCM,
+                    lengthCM: room.lengthCM,
+                    pileDirection: room.pileDirection,
+                    rollWidthCM: rollWidthMetres * 100,
+                    onTapStrip: cyclePileDirection
+                )
+                .frame(minHeight: 220)
+                .padding(.vertical, 8)
+            } header: {
+                Text("Layout")
+            } footer: {
+                Text("Tap any strip to rotate the pile direction 90°.")
+            }
         }
         .navigationTitle(room.name.isEmpty ? "Room" : room.name)
         .navigationBarTitleDisplayMode(.inline)
@@ -110,5 +126,9 @@ struct RoomDetailView: View {
         case .down: return "↓"
         case .left: return "←"
         }
+    }
+
+    private func cyclePileDirection() {
+        room.pileDirection = room.pileDirection.rotated90Clockwise()
     }
 }
