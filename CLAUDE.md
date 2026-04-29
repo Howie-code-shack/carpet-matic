@@ -4,9 +4,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repo state
 
-**Pre-code.** As of 2026-04-29 there is no Xcode project, no source files, and no tests. The repo contains only three planning documents and Claude memory. The first implementation step is **Phase 0** in `TODO.md` (Apple Developer enrolment + Xcode project scaffold).
+As of 2026-04-29:
 
-When commands like build / lint / run-tests are needed, they will come from the Xcode project created in Phase 0 (`xcodebuild`, `swift test` if a Swift package is added, etc.). Do not fabricate commands until the project exists.
+- **`Engine/`** — a Swift Package (`CarpetMaticEngine`) with the bin-packing engine and unit tests. Pure value types, no Apple framework dependencies beyond `Foundation`. Platform-agnostic, tested with `swift test`.
+- **`CarpetMatic/`** — the Xcode app (iOS, runs on Mac as "Designed for iPad"). Uses **SwiftData with a local store** for now. CloudKit sync is **not yet wired up** — that's a one-line `ModelContainer` config change once the user's paid Apple Developer account is approved.
+- The Xcode project uses **synchronized groups** (Xcode 15+ feature) — files added to `CarpetMatic/CarpetMatic/` are auto-included; you don't need to edit `project.pbxproj`.
+
+## Commands
+
+```bash
+# Engine
+cd Engine && swift test                           # all 21 engine tests
+cd Engine && swift test --filter PackingEngineTests/testUserScenarioWithNestableSecondRoom
+
+# App — build for iOS Simulator
+cd CarpetMatic && xcodebuild -scheme CarpetMatic \
+  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -derivedDataPath /tmp/cm-derived build
+
+# Boot simulator + install + launch
+xcrun simctl boot "iPhone 17" || true
+xcrun simctl install booted /tmp/cm-derived/Build/Products/Debug-iphonesimulator/CarpetMatic.app
+xcrun simctl launch booted howie.one.CarpetMatic
+
+# Screenshot the running simulator
+xcrun simctl io booted screenshot /tmp/cm.png
+
+# App — build for Mac (runs as "Designed for iPad" on Apple Silicon Macs)
+cd CarpetMatic && xcodebuild -scheme CarpetMatic -destination 'platform=macOS' build
+```
+
+The user can also just hit **⌘R** in Xcode — that's the everyday loop.
 
 ## Authoritative sources
 
@@ -38,6 +66,9 @@ Things that took multiple rounds of user clarification — easy to get wrong if 
 - **Result view is per-room only.** No graphical layout view in MVP; pile arrows render inline next to each piece in the breakdown. The packing engine internally tracks piece positions on the roll so a future graphical view can be added without re-running it.
 - **PDF export only.** `.pages`, RTF, DOCX are explicitly out of scope for MVP.
 - **CloudKit constraints.** Every SwiftData property must be optional or have a default; relationships need optional inverses. Required by SwiftData ↔ CloudKit interop.
+- **Engine consumes plain value types, not `@Model` classes.** The Xcode app keeps `@Model` classes (`ProjectModel`/`RoomModel`/`PieceModel`) for SwiftData and converts them to the engine's `Project` / `Room` / `Piece` structs via the `Adapters/` layer before calling `PackingEngine.pack(_:)`. This keeps the engine SwiftData-free and unit-testable from `swift test`. Don't import SwiftData into `Engine/`.
+- **Enums are stored as String raw values** in `@Model` classes (`kindRaw`, `pileDirectionRaw`) with computed-property wrappers. This is more CloudKit-friendly than storing the enum directly. Don't "simplify" by removing the wrappers without testing CloudKit sync.
+- **iOS-only target with "Designed for iPad on Mac".** The Xcode project is the iOS App template, not Multiplatform. On Apple Silicon Macs it runs via the "iPad apps on Mac" path. If the user wants a true native Mac UI later, that's a separate effort (NavigationSplitView refactor, AppKit-tuned controls, etc.) — don't promise it without scoping.
 
 ## Open items (don't ship without resolving)
 

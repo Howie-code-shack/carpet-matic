@@ -10,71 +10,89 @@ Architecture and approach. The actionable build checklist is in `TODO.md`. The "
 - **PDF export:** SwiftUI's `ImageRenderer` for the page content, written to a PDF context via PDFKit.
 - **Distribution:** Apple Developer Program ($99/yr) — required for CloudKit and future TestFlight.
 
-## Project structure (proposed)
+## Project structure
 
 ```
-CarpetMatic/
-├── CarpetMaticApp.swift          # @main, ModelContainer setup
-├── Models/
-│   ├── Project.swift
-│   ├── Room.swift
-│   ├── Piece.swift
-│   └── Enums.swift               # RoomKind, PileDirection
-├── Calc/
-│   ├── PackingEngine.swift       # bin-pack pieces onto a roll
-│   └── PackingResult.swift       # structs returned to the UI
-├── UI/
-│   ├── ProjectListView.swift
-│   ├── ProjectDetailView.swift
-│   ├── RoomDetailView.swift
-│   ├── PieceEditorView.swift
-│   ├── ResultView.swift
-│   └── PileArrowView.swift       # small reusable arrow icon
-├── Export/
-│   └── PDFExporter.swift
-└── Tests/
-    └── PackingEngineTests.swift
+carpet-matic/
+├── Engine/                          # Swift Package (built first; runs with `swift test`)
+│   ├── Package.swift
+│   ├── Sources/CarpetMaticEngine/
+│   │   ├── Models.swift             # Project, Room, Piece, RoomKind, PileDirection (value types)
+│   │   ├── PackingEngine.swift      # FFD shelf packer
+│   │   └── PackingResult.swift      # PackingResult, RoomBreakdown, PiecePlacement, PackingError
+│   └── Tests/CarpetMaticEngineTests/
+│       └── PackingEngineTests.swift
+└── CarpetMatic/                     # (Phase 1) Xcode app, depends on Engine/ as a local package
+    ├── CarpetMaticApp.swift         # @main, ModelContainer setup
+    ├── Models/                      # SwiftData @Model classes (Project/Room/Piece)
+    ├── Adapters/                    # Convert @Model classes → Engine value types
+    ├── UI/
+    │   ├── ProjectListView.swift
+    │   ├── ProjectDetailView.swift
+    │   ├── RoomDetailView.swift
+    │   ├── PieceEditorView.swift
+    │   ├── ResultView.swift
+    │   └── PileArrowView.swift
+    └── Export/
+        └── PDFExporter.swift
 ```
+
+**Why split into a Swift Package?** The engine has no UI / SwiftData / CloudKit dependencies — it's pure logic. Keeping it in a separate package lets us test it in isolation with `swift test` (no Xcode app build, no simulator), which is a much faster feedback loop. The Xcode app will add the package as a local dependency in Phase 1.
 
 ## Data model
 
+There are **two parallel models** with the same field names but different roles:
+
+1. **Engine value types** (in `Engine/Sources/CarpetMaticEngine/Models.swift`) — plain Swift `struct`s. Already implemented. The packer consumes these.
+2. **App `@Model` classes** (Phase 1 — not yet written) — SwiftData persistence types stored in CloudKit. The app converts `@Model` instances to engine `struct`s via an adapter before calling `PackingEngine.pack(_:)`.
+
+The engine value types are:
+
+```swift
+public struct Project { id, name, rollWidthMetres, rooms }
+public struct Room    { id, name, kind, pieces }
+public struct Piece   { id, widthCM, lengthCM, pileDirection, isRotated }
+public enum RoomKind  { case rectangle, stairs }
+public enum PileDirection { case up, down, left, right }
+```
+
+The Phase 1 `@Model` classes will mirror this shape:
+
 ```swift
 @Model
-final class Project {
+final class ProjectModel {
     var id: UUID
     var name: String
     var rollWidthMetres: Int       // one of 1, 2, 3, 4, 5
     var createdAt: Date
-    @Relationship(deleteRule: .cascade) var rooms: [Room]
+    @Relationship(deleteRule: .cascade) var rooms: [RoomModel]
 }
 
 @Model
-final class Room {
+final class RoomModel {
     var id: UUID
     var name: String
-    var kind: RoomKind             // .rectangle or .stairs
-    var project: Project?
-    @Relationship(deleteRule: .cascade) var pieces: [Piece]
+    var kind: RoomKind             // shared enum from the engine package
+    var project: ProjectModel?
+    @Relationship(deleteRule: .cascade) var pieces: [PieceModel]
 }
 
 @Model
-final class Piece {
+final class PieceModel {
     var id: UUID
-    var widthCM: Int               // store integer cm to avoid float drift
+    var widthCM: Int
     var lengthCM: Int
     var pileDirection: PileDirection
-    var isRotated: Bool            // user toggle; pile rotates with the piece
-    var room: Room?
+    var isRotated: Bool
+    var room: RoomModel?
 }
-
-enum RoomKind: String, Codable { case rectangle, stairs }
-enum PileDirection: String, Codable { case up, down, left, right }
 ```
 
 Notes:
 - Dimensions stored as integer centimetres internally; converted to/from metres at the UI boundary. Avoids float drift across CloudKit sync and PDF export.
-- `isRotated` is a stored flag, not a computed view. The packing engine sees pieces in their post-rotation orientation (effective width = original length when rotated, etc.).
+- `isRotated` is a stored flag, not a computed view. The packing engine sees pieces in their post-rotation orientation (`effectiveWidthCM` / `effectiveLengthCM` / `effectivePileDirection` swap on `isRotated`).
 - `pileDirection` is a property of the cut piece. Rotating the piece rotates the arrow with it: e.g. a piece with `.up` pile rotated 90° clockwise has `.right` pile.
+- Why two parallel models? The engine must be testable from `swift test` without SwiftData / CoreData / iOS framework deps. The `@Model` classes only exist inside the app target.
 
 ## Sync architecture
 
@@ -84,6 +102,8 @@ Notes:
 - CloudKit limitations to respect: every model must be optional or have a default; relationships must be optional inverses. Already satisfied by the model above.
 
 ## Calculation engine
+
+✅ **Implemented in `Engine/Sources/CarpetMaticEngine/PackingEngine.swift`** (2026-04-29). 21 unit tests passing. Run with `cd Engine && swift test`.
 
 The engine packs all pieces from all rooms in a project onto a fixed-width roll, minimising total length.
 
@@ -102,31 +122,35 @@ The engine packs all pieces from all rooms in a project onto a fixed-width roll,
 - Not optimal — there exist nests with less waste — but matches the user's stated tolerance ("good enough, I'll review").
 - Easy to swap for a smarter packer (e.g. skyline / guillotine) later without changing the result struct.
 
-**Result struct:**
+**Result struct (as implemented):**
 
 ```swift
-struct PackingResult {
-    let totalMetres: Double
-    let perRoom: [RoomBreakdown]
+public struct PackingResult {
+    public let totalLengthCM: Int            // integer cm, no float drift
+    public let perRoom: [RoomBreakdown]
+    public let placements: [PiecePlacement]  // flat list, includes positions
+    public var totalLengthMetres: Double { ... }
 }
 
-struct RoomBreakdown {
-    let roomID: UUID
-    let roomName: String
-    let kind: RoomKind
-    let pieces: [PiecePlacement]
+public struct RoomBreakdown {
+    public let roomID: UUID
+    public let roomName: String
+    public let kind: RoomKind
+    public let pieces: [PiecePlacement]
 }
 
-struct PiecePlacement {
-    let pieceID: UUID
-    let widthMetres: Double
-    let lengthMetres: Double
-    let pileDirection: PileDirection   // post-rotation, for arrow display
-    // future: position on the roll, for a graphical layout view
+public struct PiecePlacement {
+    public let pieceID: UUID
+    public let roomID: UUID
+    public let widthCM: Int          // post-rotation
+    public let lengthCM: Int         // post-rotation
+    public let pileDirection: PileDirection   // post-rotation, for arrow display
+    public let xCM: Int              // position on roll (left edge → right)
+    public let yCM: Int              // position on roll (start → along the length)
 }
 ```
 
-The engine internally tracks each placed piece's position on the roll, even though MVP doesn't render it. This means a future graphical layout view can be added without re-running the engine.
+The engine tracks each placed piece's position (`xCM`, `yCM`) on the roll, even though the MVP UI only renders the per-room breakdown. This means a future graphical layout view can consume `placements` without re-running the engine.
 
 ## UI architecture
 

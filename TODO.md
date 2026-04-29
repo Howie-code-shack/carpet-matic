@@ -2,6 +2,16 @@
 
 Phased build checklist. See `REQUIREMENTS.md` for what we're building and `PLAN.md` for the architecture.
 
+## Done early (out-of-phase)
+
+The calc engine was built first as a standalone Swift Package because it needs no Apple Developer account and is the most novel piece — getting it right early de-risks the rest.
+
+- [x] `Engine/` Swift Package created (`CarpetMaticEngine`).
+- [x] Domain value types: `Project`, `Room`, `Piece`, `RoomKind`, `PileDirection`.
+- [x] `PackingEngine`: First-Fit-Decreasing shelf packer.
+- [x] Result types: `PackingResult`, `RoomBreakdown`, `PiecePlacement`, `PackingError`.
+- [x] Unit tests (21 cases): empty project, single piece, side-by-side, separate shelves, rotation (dimensions + pile), cross-room nesting, the 5.3 m user scenario, stairs propagation, room-order preservation, oversize/zero/invalid errors.
+
 ## Phase 0 — Foundation
 
 Goal: a buildable, signed, syncing skeleton on both devices.
@@ -31,9 +41,11 @@ Goal: every functional requirement in `REQUIREMENTS.md` works end-to-end.
 
 ### Calc engine
 
-- [ ] `PackingEngine.swift`: First-Fit-Decreasing shelf packer per `PLAN.md`.
-- [ ] Unit tests for: single piece, multi-piece-single-shelf, multi-shelf, all rotated, mix of rectangle and stairs, empty project.
-- [ ] Result types: `PackingResult`, `RoomBreakdown`, `PiecePlacement`.
+(Built early in `Engine/` — see "Done early" section above. Phase 1 just needs to wire it in.)
+
+- [ ] Add `Engine/` as a local Swift Package dependency in the Xcode app.
+- [ ] Write the `Adapters/` layer: convert `@Model` classes (`ProjectModel` etc.) to engine `Project` / `Room` / `Piece` value types.
+- [ ] Wire the result view to call `PackingEngine.pack(_:)` on the converted project.
 
 ### Output
 
