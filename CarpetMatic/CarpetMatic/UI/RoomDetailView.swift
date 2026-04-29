@@ -4,17 +4,10 @@ import CarpetMaticEngine
 
 struct RoomDetailView: View {
     @Bindable var room: RoomModel
-    @Environment(\.modelContext) private var modelContext
+    let rollWidthMetres: Int
 
-    @State private var showingNewPieceSheet = false
-
-    private var pieces: [PieceModel] {
-        room.pieces ?? []
-    }
-
-    private var rollWidthMetres: Int {
-        room.project?.rollWidthMetres ?? 4
-    }
+    @State private var widthText: String = ""
+    @State private var lengthText: String = ""
 
     var body: some View {
         Form {
@@ -27,146 +20,87 @@ struct RoomDetailView: View {
                 .pickerStyle(.segmented)
             }
 
-            Section {
-                if pieces.isEmpty {
-                    Text("No pieces yet.")
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(pieces) { piece in
-                        NavigationLink {
-                            PieceEditorView(piece: piece, rollWidthMetres: rollWidthMetres)
-                        } label: {
-                            PieceRow(piece: piece)
-                        }
-                    }
-                    .onDelete(perform: deletePieces)
+            Section("Dimensions (metres)") {
+                HStack {
+                    Text("Width")
+                    TextField("e.g. 4.50", text: $widthText)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
                 }
+                HStack {
+                    Text("Length")
+                    TextField("e.g. 5.20", text: $lengthText)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                }
+            }
 
-                Button {
-                    showingNewPieceSheet = true
-                } label: {
-                    Label("Add piece", systemImage: "plus")
+            Section {
+                Picker("Pile direction", selection: $room.pileDirection) {
+                    ForEach(PileDirection.allCases, id: \.self) { d in
+                        Text(arrow(for: d)).tag(d)
+                    }
                 }
+                .pickerStyle(.segmented)
             } header: {
-                Text("Pieces")
+                Text("Pile direction")
             } footer: {
-                Text("Width must be ≤ \(rollWidthMetres) m (the project's roll width). Enter dimensions in metres; round up at input — the software does not pad measurements.")
+                stripsFooter
             }
         }
         .navigationTitle(room.name.isEmpty ? "Room" : room.name)
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showingNewPieceSheet) {
-            NewPieceSheet(rollWidthMetres: rollWidthMetres) { width, length, pile in
-                let piece = PieceModel(widthCM: width, lengthCM: length, pileDirection: pile)
-                piece.room = room
-                modelContext.insert(piece)
+        .onAppear {
+            widthText = DimensionFormat.metres(fromCM: room.widthCM)
+            lengthText = DimensionFormat.metres(fromCM: room.lengthCM)
+        }
+        .onChange(of: widthText) { _, new in
+            if let cm = DimensionFormat.parseMetresToCM(new), cm > 0 {
+                room.widthCM = cm
+            }
+        }
+        .onChange(of: lengthText) { _, new in
+            if let cm = DimensionFormat.parseMetresToCM(new), cm > 0 {
+                room.lengthCM = cm
             }
         }
     }
 
-    private func deletePieces(at offsets: IndexSet) {
-        for idx in offsets {
-            modelContext.delete(pieces[idx])
-        }
-    }
-}
-
-private struct PieceRow: View {
-    let piece: PieceModel
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(DimensionFormat.metres(fromCM: piece.widthCM)) × \(DimensionFormat.metres(fromCM: piece.lengthCM)) m")
-                    .font(.headline)
-                if piece.isRotated {
-                    Text("Rotated 90°")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+    @ViewBuilder
+    private var stripsFooter: some View {
+        if let preview = stripsPreviewText {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(preview)
+                if !isOptimal {
+                    Text("Tip: rotating pile 90° would use less carpet.")
+                        .foregroundStyle(.orange)
                 }
             }
-            Spacer()
-            PileArrowView(direction: effectivePile)
-        }
-        .padding(.vertical, 2)
-    }
-
-    private var effectivePile: PileDirection {
-        piece.isRotated ? piece.pileDirection.rotated90Clockwise() : piece.pileDirection
-    }
-}
-
-private struct NewPieceSheet: View {
-    @Environment(\.dismiss) private var dismiss
-
-    let rollWidthMetres: Int
-    let onCreate: (_ widthCM: Int, _ lengthCM: Int, _ pile: PileDirection) -> Void
-
-    @State private var widthText: String = ""
-    @State private var lengthText: String = ""
-    @State private var pile: PileDirection = .up
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Dimensions (metres)") {
-                    HStack {
-                        Text("Width")
-                        TextField("e.g. 4.50", text: $widthText)
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
-                    }
-                    HStack {
-                        Text("Length")
-                        TextField("e.g. 5.20", text: $lengthText)
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
-                    }
-                    if let widthCM = parseInputs().widthCM,
-                       widthCM > rollWidthMetres * 100 {
-                        Text("Width exceeds the \(rollWidthMetres) m roll.")
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                    }
-                }
-                Section("Pile direction") {
-                    Picker("Direction", selection: $pile) {
-                        ForEach(PileDirection.allCases, id: \.self) { d in
-                            Text(arrow(for: d)).tag(d)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-            }
-            .navigationTitle("New Piece")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") {
-                        let parsed = parseInputs()
-                        if let w = parsed.widthCM, let l = parsed.lengthCM {
-                            onCreate(w, l, pile)
-                            dismiss()
-                        }
-                    }
-                    .disabled(!isValid)
-                }
-            }
+        } else {
+            Text("Enter dimensions to see strip count.")
         }
     }
 
-    private func parseInputs() -> (widthCM: Int?, lengthCM: Int?) {
-        (DimensionFormat.parseMetresToCM(widthText),
-         DimensionFormat.parseMetresToCM(lengthText))
+    private var stripsPreviewText: String? {
+        guard room.widthCM > 0, room.lengthCM > 0, rollWidthMetres > 0 else { return nil }
+        let rollWidthCM = rollWidthMetres * 100
+        let stripsAlongLength = room.pileDirection.stripsAlongLength
+        let stripWidth = stripsAlongLength ? room.widthCM : room.lengthCM
+        let stripLength = stripsAlongLength ? room.lengthCM : room.widthCM
+        let count = (stripWidth + rollWidthCM - 1) / rollWidthCM
+        let totalCM = count * stripLength
+        let s = count == 1 ? "strip" : "strips"
+        return "\(count) \(s) · \(DimensionFormat.metres(fromCM: totalCM)) m of carpet for this room"
     }
 
-    private var isValid: Bool {
-        let parsed = parseInputs()
-        guard let w = parsed.widthCM, let l = parsed.lengthCM else { return false }
-        return w > 0 && l > 0 && w <= rollWidthMetres * 100
+    private var isOptimal: Bool {
+        let rollWidthCM = rollWidthMetres * 100
+        let optimalAxis = Room.optimalPileDirection(
+            widthCM: room.widthCM,
+            lengthCM: room.lengthCM,
+            rollWidthCM: rollWidthCM
+        )
+        return room.pileDirection.stripsAlongLength == optimalAxis.stripsAlongLength
     }
 
     private func arrow(for d: PileDirection) -> String {

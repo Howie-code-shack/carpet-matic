@@ -2,15 +2,18 @@
 
 Phased build checklist. See `REQUIREMENTS.md` for what we're building and `PLAN.md` for the architecture.
 
-## Done early (out-of-phase)
+## Done
 
-The calc engine was built first as a standalone Swift Package because it needs no Apple Developer account and is the most novel piece — getting it right early de-risks the rest.
+The engine + Xcode app skeleton are in place; the input model is **room dimensions in, strips out**.
 
-- [x] `Engine/` Swift Package created (`CarpetMaticEngine`).
-- [x] Domain value types: `Project`, `Room`, `Piece`, `RoomKind`, `PileDirection`.
-- [x] `PackingEngine`: First-Fit-Decreasing shelf packer.
-- [x] Result types: `PackingResult`, `RoomBreakdown`, `PiecePlacement`, `PackingError`.
-- [x] Unit tests (21 cases): empty project, single piece, side-by-side, separate shelves, rotation (dimensions + pile), cross-room nesting, the 5.3 m user scenario, stairs propagation, room-order preservation, oversize/zero/invalid errors.
+- [x] `Engine/` Swift Package (`CarpetMaticEngine`).
+- [x] Domain value types: `Project`, `Room` (with widthCM/lengthCM/pileDirection), `RoomKind`, `PileDirection`. `Piece` exists internally as the rectangle the packer consumes.
+- [x] `PackingEngine`: strip generation per room + First-Fit-Decreasing shelf packer.
+- [x] `Room.optimalPileDirection(...)` helper used by the UI to suggest a sensible default.
+- [x] Result types: `PackingResult`, `RoomBreakdown` (with `strips`), `StripPlacement`, `PackingError`.
+- [x] Unit tests (21 cases): empty project, single rooms (narrow / exact / oversize / very-wide), pile axis selection, cross-room nesting, the 5.3 m user scenario, stairs propagation, room-order preservation, optimal-pile-direction helper, errors.
+- [x] Xcode iOS app project linked to the Engine package; SwiftData `@Model` classes (`ProjectModel`, `RoomModel`); local-only persistence.
+- [x] SwiftUI screens: `ProjectListView`, `ProjectDetailView`, `RoomDetailView` (single form: name + dimensions + pile), `ResultView` with strip breakdown, `PileArrowView`, `PDFExporter`.
 
 ## Phase 0 — Foundation
 
@@ -21,7 +24,7 @@ Goal: a buildable, signed, syncing skeleton on both devices.
 - [ ] Set bundle identifier; configure signing for iOS and Mac destinations.
 - [ ] Create a CloudKit container in the Apple Developer portal.
 - [ ] Add the iCloud entitlement; enable CloudKit; select the container.
-- [ ] Add SwiftData `@Model` types: `Project`, `Room`, `Piece`; enums `RoomKind`, `PileDirection`.
+- [x] Add SwiftData `@Model` types: `ProjectModel`, `RoomModel`; enums `RoomKind`, `PileDirection`.
 - [ ] Configure `ModelContainer` with `.private(.automatic)` CloudKit database in `CarpetMaticApp.swift`.
 - [ ] Verify the schema deploys to the CloudKit dashboard (development environment).
 - [ ] Stub a placeholder `NavigationStack` (iPhone) / `NavigationSplitView` (Mac) skeleton.
@@ -35,8 +38,7 @@ Goal: every functional requirement in `REQUIREMENTS.md` works end-to-end.
 
 - [ ] `ProjectListView`: list, create, rename, delete projects; navigate into detail.
 - [ ] `ProjectDetailView`: edit name; roll-width picker (1/2/3/4/5 m); list of rooms; "Calculate" / Result navigation.
-- [ ] `RoomDetailView`: edit name; kind picker (Rectangle / Stairs); list of pieces.
-- [ ] `PieceEditorView`: width and length input (metres, 1 cm precision, validated ≤ roll width); pile-direction picker; rotate button (placeholder visual — see Phase 2).
+- [x] `RoomDetailView`: edit name, kind, width × length (1 cm precision), pile direction; live strip-count footer with optimal-axis hint.
 - [ ] Input validation: oversize-width error message, blank name handling, sensible defaults.
 
 ### Calc engine
@@ -44,16 +46,16 @@ Goal: every functional requirement in `REQUIREMENTS.md` works end-to-end.
 (Built early in `Engine/` — see "Done early" section above. Phase 1 just needs to wire it in.)
 
 - [ ] Add `Engine/` as a local Swift Package dependency in the Xcode app.
-- [ ] Write the `Adapters/` layer: convert `@Model` classes (`ProjectModel` etc.) to engine `Project` / `Room` / `Piece` value types.
-- [ ] Wire the result view to call `PackingEngine.pack(_:)` on the converted project.
+- [x] Write the `Adapters/` layer: convert `@Model` classes (`ProjectModel`, `RoomModel`) to engine `Project` / `Room` value types.
+- [x] Wire the result view to call `PackingEngine.pack(_:)` on the converted project.
 
 ### Output
 
-- [ ] `PileArrowView`: small reusable arrow icon, takes a `PileDirection`.
-- [ ] `ResultView`: total linear metres at the top; per-room breakdown with each piece's dimensions and pile arrow.
+- [x] `PileArrowView`: small reusable arrow icon, takes a `PileDirection`.
+- [x] `ResultView`: total linear metres at the top; per-room breakdown with each strip's dimensions and pile arrow.
 - [ ] Result recomputes automatically on data change.
-- [ ] `PDFExporter`: render `ResultView` content to PDF via PDFKit + `ImageRenderer`.
-- [ ] `fileExporter` integration for share/save.
+- [x] `PDFExporter`: render the result to PDF (one room per section, strips listed with pile direction).
+- [x] `fileExporter` integration for share/save.
 
 ### Sync verification
 

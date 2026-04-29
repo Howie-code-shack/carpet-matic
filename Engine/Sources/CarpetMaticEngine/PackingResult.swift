@@ -3,13 +3,13 @@ import Foundation
 public struct PackingResult: Equatable, Sendable {
     public let totalLengthCM: Int
     public let perRoom: [RoomBreakdown]
-    public let placements: [PiecePlacement]
+    public let placements: [StripPlacement]
 
     public var totalLengthMetres: Double {
         Double(totalLengthCM) / 100.0
     }
 
-    public init(totalLengthCM: Int, perRoom: [RoomBreakdown], placements: [PiecePlacement]) {
+    public init(totalLengthCM: Int, perRoom: [RoomBreakdown], placements: [StripPlacement]) {
         self.totalLengthCM = totalLengthCM
         self.perRoom = perRoom
         self.placements = placements
@@ -20,18 +20,19 @@ public struct RoomBreakdown: Equatable, Sendable {
     public let roomID: UUID
     public let roomName: String
     public let kind: RoomKind
-    public let pieces: [PiecePlacement]
+    public let strips: [StripPlacement]
 
-    public init(roomID: UUID, roomName: String, kind: RoomKind, pieces: [PiecePlacement]) {
+    public init(roomID: UUID, roomName: String, kind: RoomKind, strips: [StripPlacement]) {
         self.roomID = roomID
         self.roomName = roomName
         self.kind = kind
-        self.pieces = pieces
+        self.strips = strips
     }
 }
 
-public struct PiecePlacement: Equatable, Sendable {
-    public let pieceID: UUID
+/// One strip cut from the roll, placed at a specific position.
+public struct StripPlacement: Equatable, Sendable {
+    public let id: UUID
     public let roomID: UUID
     public let widthCM: Int
     public let lengthCM: Int
@@ -40,7 +41,7 @@ public struct PiecePlacement: Equatable, Sendable {
     public let yCM: Int
 
     public init(
-        pieceID: UUID,
+        id: UUID = UUID(),
         roomID: UUID,
         widthCM: Int,
         lengthCM: Int,
@@ -48,7 +49,7 @@ public struct PiecePlacement: Equatable, Sendable {
         xCM: Int,
         yCM: Int
     ) {
-        self.pieceID = pieceID
+        self.id = id
         self.roomID = roomID
         self.widthCM = widthCM
         self.lengthCM = lengthCM
@@ -60,6 +61,5 @@ public struct PiecePlacement: Equatable, Sendable {
 
 public enum PackingError: Error, Equatable, Sendable {
     case invalidRollWidthMetres(Int)
-    case pieceWiderThanRoll(pieceID: UUID, pieceWidthCM: Int, rollWidthCM: Int)
-    case nonPositiveDimension(pieceID: UUID)
+    case invalidRoomDimensions(roomID: UUID)
 }

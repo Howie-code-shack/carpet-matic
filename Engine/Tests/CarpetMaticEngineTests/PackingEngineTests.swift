@@ -3,7 +3,7 @@ import XCTest
 
 final class PackingEngineTests: XCTestCase {
 
-    // MARK: - Boundary cases
+    // MARK: - Boundary
 
     func testEmptyProjectHasZeroLength() throws {
         let project = Project(name: "Empty", rollWidthMetres: 4)
@@ -13,239 +13,6 @@ final class PackingEngineTests: XCTestCase {
         XCTAssertTrue(result.placements.isEmpty)
     }
 
-    func testProjectWithEmptyRoomHasZeroLength() throws {
-        let project = Project(
-            name: "P",
-            rollWidthMetres: 4,
-            rooms: [Room(name: "Lounge")]
-        )
-        let result = try PackingEngine.pack(project)
-        XCTAssertEqual(result.totalLengthCM, 0)
-        XCTAssertTrue(result.perRoom.isEmpty,
-            "Rooms with no pieces should not appear in the breakdown.")
-    }
-
-    // MARK: - Single piece
-
-    func testSinglePieceFullRollWidth() throws {
-        let piece = Piece(widthCM: 400, lengthCM: 500)
-        let project = Project(
-            name: "P",
-            rollWidthMetres: 4,
-            rooms: [Room(name: "Lounge", pieces: [piece])]
-        )
-        let result = try PackingEngine.pack(project)
-        XCTAssertEqual(result.totalLengthCM, 500)
-        XCTAssertEqual(result.placements.count, 1)
-        XCTAssertEqual(result.placements[0].xCM, 0)
-        XCTAssertEqual(result.placements[0].yCM, 0)
-    }
-
-    func testSinglePieceNarrowerThanRollStillUsesFullShelfHeight() throws {
-        // 1m wide piece on a 4m roll → shelf is 5m tall, only 1m of width used.
-        // Total length consumed = 5m (FFD shelf packing wastes the unused width).
-        let piece = Piece(widthCM: 100, lengthCM: 500)
-        let project = Project(
-            name: "P",
-            rollWidthMetres: 4,
-            rooms: [Room(name: "Hall", pieces: [piece])]
-        )
-        let result = try PackingEngine.pack(project)
-        XCTAssertEqual(result.totalLengthCM, 500)
-    }
-
-    // MARK: - Side-by-side packing
-
-    func testTwoPiecesShareShelfWhenWidthFits() throws {
-        // 250 + 150 = 400 ≤ 400 roll width. Both same length → one shelf, total 300cm.
-        let a = Piece(widthCM: 250, lengthCM: 300)
-        let b = Piece(widthCM: 150, lengthCM: 300)
-        let project = Project(
-            name: "P",
-            rollWidthMetres: 4,
-            rooms: [Room(name: "Lounge", pieces: [a, b])]
-        )
-        let result = try PackingEngine.pack(project)
-        XCTAssertEqual(result.totalLengthCM, 300)
-        XCTAssertEqual(result.placements.count, 2)
-        // Both placed at y=0 (same shelf), x positions sum to roll width usage.
-        XCTAssertTrue(result.placements.allSatisfy { $0.yCM == 0 })
-        let xs = result.placements.map(\.xCM).sorted()
-        XCTAssertEqual(xs, [0, 250])
-    }
-
-    func testTwoPiecesShelfTakesLongestLength() throws {
-        // a is 300 long, b is 200 long, both fit width-wise → shelf height = 300 (longest).
-        // Total = 300, even though b is shorter.
-        let a = Piece(widthCM: 200, lengthCM: 300)
-        let b = Piece(widthCM: 200, lengthCM: 200)
-        let project = Project(
-            name: "P",
-            rollWidthMetres: 4,
-            rooms: [Room(name: "Lounge", pieces: [a, b])]
-        )
-        let result = try PackingEngine.pack(project)
-        XCTAssertEqual(result.totalLengthCM, 300)
-    }
-
-    func testTwoPiecesStackOnSeparateShelvesWhenTooWide() throws {
-        // Each is 300cm wide on a 400cm roll → 600 > 400, can't share.
-        // Two shelves, each 200cm tall → total 400cm.
-        let a = Piece(widthCM: 300, lengthCM: 200)
-        let b = Piece(widthCM: 300, lengthCM: 200)
-        let project = Project(
-            name: "P",
-            rollWidthMetres: 4,
-            rooms: [Room(name: "Lounge", pieces: [a, b])]
-        )
-        let result = try PackingEngine.pack(project)
-        XCTAssertEqual(result.totalLengthCM, 400)
-        let ys = result.placements.map(\.yCM).sorted()
-        XCTAssertEqual(ys, [0, 200])
-    }
-
-    // MARK: - Rotation
-
-    func testRotatedPieceUsesSwappedDimensions() throws {
-        // Piece is 200 wide × 500 long, rotated → effective 500 wide × 200 long.
-        // 500 wide > 400 roll → would error... let's pick dims that don't overflow.
-        // Piece is 100 wide × 300 long, rotated → effective 300 wide × 100 long.
-        let rotated = Piece(widthCM: 100, lengthCM: 300, isRotated: true)
-        let project = Project(
-            name: "P",
-            rollWidthMetres: 4,
-            rooms: [Room(name: "R", pieces: [rotated])]
-        )
-        let result = try PackingEngine.pack(project)
-        XCTAssertEqual(result.totalLengthCM, 100,
-            "Rotated piece's effective length should be its original width.")
-        XCTAssertEqual(result.placements[0].widthCM, 300)
-        XCTAssertEqual(result.placements[0].lengthCM, 100)
-    }
-
-    func testRotationRotatesPileDirectionClockwise() throws {
-        let rotated = Piece(
-            widthCM: 100, lengthCM: 200,
-            pileDirection: .up, isRotated: true
-        )
-        let project = Project(
-            name: "P",
-            rollWidthMetres: 4,
-            rooms: [Room(name: "R", pieces: [rotated])]
-        )
-        let result = try PackingEngine.pack(project)
-        XCTAssertEqual(result.placements[0].pileDirection, .right,
-            "An up-pile piece rotated 90° clockwise should have a right-pile.")
-    }
-
-    func testPileRotationCycleIsConsistent() {
-        XCTAssertEqual(PileDirection.up.rotated90Clockwise(), .right)
-        XCTAssertEqual(PileDirection.right.rotated90Clockwise(), .down)
-        XCTAssertEqual(PileDirection.down.rotated90Clockwise(), .left)
-        XCTAssertEqual(PileDirection.left.rotated90Clockwise(), .up)
-    }
-
-    // MARK: - Cross-room nesting (the user's key requirement)
-
-    func testPiecesFromDifferentRoomsShareAShelf() throws {
-        // Lounge piece: 450 wide × 300 long.
-        // Hall piece: 30 wide × 200 long.
-        // 450 + 30 = 480 ≤ 500 roll width. Hall piece nests next to Lounge piece.
-        // Single shelf 300 tall → total 300cm.
-        let lounge = Room(name: "Lounge", pieces: [
-            Piece(widthCM: 450, lengthCM: 300),
-        ])
-        let hall = Room(name: "Hall", pieces: [
-            Piece(widthCM: 30, lengthCM: 200),
-        ])
-        let project = Project(
-            name: "House",
-            rollWidthMetres: 5,
-            rooms: [lounge, hall]
-        )
-        let result = try PackingEngine.pack(project)
-        XCTAssertEqual(result.totalLengthCM, 300,
-            "Cross-room nesting: pieces from different rooms must share a shelf when they fit.")
-        XCTAssertEqual(result.perRoom.count, 2)
-    }
-
-    func testUserScenarioSplitWideRoom() throws {
-        // User's stated example: room is 5.3m × 4m on a 5m roll.
-        // User splits into two pieces: 5m × 4m and 0.3m × 4m, both in one room.
-        // Both pieces are 400cm long. 500 + 30 > 500 roll → can't share shelf.
-        // Two shelves, each 400cm → total 800cm = 8m.
-        // (No nesting available without other narrow pieces.)
-        let lounge = Room(name: "Lounge", pieces: [
-            Piece(widthCM: 500, lengthCM: 400),
-            Piece(widthCM: 30,  lengthCM: 400),
-        ])
-        let project = Project(
-            name: "House",
-            rollWidthMetres: 5,
-            rooms: [lounge]
-        )
-        let result = try PackingEngine.pack(project)
-        XCTAssertEqual(result.totalLengthCM, 800)
-    }
-
-    func testUserScenarioWithNestableSecondRoom() throws {
-        // Same as above plus a Hall with a 470 × 300 piece.
-        // Lounge 5×4 piece takes shelf 1 (height 400, full width).
-        // Lounge 0.3×4 piece needs its own shelf width-wise next to nothing... wait:
-        //   After sorting by length desc: [500×400, 30×400, 470×300]
-        //   Shelf 1 height 400. Place 500×400 (fills width). Try 30×400 — no width.
-        //     Try 470×300 — fits height but no width left. → shelf 1 = 400.
-        //   Shelf 2 height 400 (next longest unplaced is 30×400). Place 30×400.
-        //     Try 470×300 — pieceLength 300 ≤ shelfHeight 400 ✓; widthUsed 30 + 470 = 500 ≤ 500 ✓.
-        //     Place. → shelf 2 = 400.
-        //   Total = 800cm. Hall piece nested next to the narrow strip.
-        let lounge = Room(name: "Lounge", pieces: [
-            Piece(widthCM: 500, lengthCM: 400),
-            Piece(widthCM: 30,  lengthCM: 400),
-        ])
-        let hall = Room(name: "Hall", pieces: [
-            Piece(widthCM: 470, lengthCM: 300),
-        ])
-        let project = Project(
-            name: "House",
-            rollWidthMetres: 5,
-            rooms: [lounge, hall]
-        )
-        let result = try PackingEngine.pack(project)
-        XCTAssertEqual(result.totalLengthCM, 800,
-            "Hall's 470cm piece should nest next to Lounge's 30cm strip on shelf 2.")
-        XCTAssertEqual(result.perRoom.count, 2)
-    }
-
-    // MARK: - Stairs
-
-    func testStairsRoomKindPropagatedToBreakdown() throws {
-        let stairs = Room(name: "Stairs", kind: .stairs, pieces: [
-            Piece(widthCM: 70, lengthCM: 600),
-        ])
-        let project = Project(
-            name: "House",
-            rollWidthMetres: 4,
-            rooms: [stairs]
-        )
-        let result = try PackingEngine.pack(project)
-        XCTAssertEqual(result.perRoom.count, 1)
-        XCTAssertEqual(result.perRoom[0].kind, .stairs)
-    }
-
-    // MARK: - Order preservation
-
-    func testPerRoomBreakdownPreservesProjectRoomOrder() throws {
-        let rooms = ["A", "B", "C"].map {
-            Room(name: $0, pieces: [Piece(widthCM: 100, lengthCM: 200)])
-        }
-        let project = Project(name: "P", rollWidthMetres: 4, rooms: rooms)
-        let result = try PackingEngine.pack(project)
-        XCTAssertEqual(result.perRoom.map(\.roomName), ["A", "B", "C"])
-    }
-
-    // MARK: - Errors
-
     func testInvalidRollWidthThrows() {
         let project = Project(name: "P", rollWidthMetres: 6)
         XCTAssertThrowsError(try PackingEngine.pack(project)) { error in
@@ -253,55 +20,218 @@ final class PackingEngineTests: XCTestCase {
         }
     }
 
-    func testZeroRollWidthThrows() {
-        let project = Project(name: "P", rollWidthMetres: 0)
+    func testZeroDimensionRoomThrows() {
+        let room = Room(name: "Bad", widthCM: 0, lengthCM: 200)
+        let project = Project(name: "P", rollWidthMetres: 4, rooms: [room])
         XCTAssertThrowsError(try PackingEngine.pack(project)) { error in
-            XCTAssertEqual(error as? PackingError, .invalidRollWidthMetres(0))
+            guard case .invalidRoomDimensions = (error as? PackingError) else {
+                return XCTFail("Expected invalidRoomDimensions, got \(error)")
+            }
         }
     }
 
-    func testPieceWiderThanRollThrows() {
-        let oversize = Piece(widthCM: 500, lengthCM: 200)
-        let project = Project(
-            name: "P", rollWidthMetres: 4,
-            rooms: [Room(name: "R", pieces: [oversize])]
-        )
-        XCTAssertThrowsError(try PackingEngine.pack(project)) { error in
-            guard case .pieceWiderThanRoll(_, let w, let r) = (error as? PackingError) else {
-                return XCTFail("Expected pieceWiderThanRoll, got \(error)")
-            }
-            XCTAssertEqual(w, 500)
-            XCTAssertEqual(r, 400)
-        }
+    // MARK: - Single room — fits in one strip
+
+    func testSingleRoomNarrowerThanRollFitsOneStrip() throws {
+        // 3m wide × 5m long room on a 4m roll, pile up (strips along Length).
+        // 1 strip of 3m × 5m. Total = 5m roll consumed.
+        let room = Room(name: "Lounge", widthCM: 300, lengthCM: 500, pileDirection: .up)
+        let project = Project(name: "P", rollWidthMetres: 4, rooms: [room])
+        let result = try PackingEngine.pack(project)
+        XCTAssertEqual(result.totalLengthCM, 500)
+        XCTAssertEqual(result.placements.count, 1)
+        XCTAssertEqual(result.placements[0].widthCM, 300)
+        XCTAssertEqual(result.placements[0].lengthCM, 500)
     }
 
-    func testRotatedPieceWiderThanRollThrows() {
-        // 100 wide × 600 long, rotated → effective 600 wide → exceeds 4m roll.
-        let rotated = Piece(widthCM: 100, lengthCM: 600, isRotated: true)
-        let project = Project(
-            name: "P", rollWidthMetres: 4,
-            rooms: [Room(name: "R", pieces: [rotated])]
-        )
-        XCTAssertThrowsError(try PackingEngine.pack(project)) { error in
-            guard case .pieceWiderThanRoll(_, let w, _) = (error as? PackingError) else {
-                return XCTFail("Expected pieceWiderThanRoll for rotated piece, got \(error)")
-            }
-            XCTAssertEqual(w, 600,
-                "Rotation must apply before width-validation.")
-        }
+    func testSingleRoomExactlyRollWidth() throws {
+        let room = Room(name: "R", widthCM: 400, lengthCM: 600, pileDirection: .up)
+        let project = Project(name: "P", rollWidthMetres: 4, rooms: [room])
+        let result = try PackingEngine.pack(project)
+        XCTAssertEqual(result.totalLengthCM, 600)
+        XCTAssertEqual(result.placements.count, 1)
     }
 
-    func testZeroDimensionThrows() {
-        let bad = Piece(widthCM: 0, lengthCM: 200)
-        let project = Project(
-            name: "P", rollWidthMetres: 4,
-            rooms: [Room(name: "R", pieces: [bad])]
+    // MARK: - Single room — multiple strips
+
+    func testRoomWiderThanRollSplitsAutomatically() throws {
+        // 5m wide × 4m long room on a 4m roll, pile up.
+        // Strips along Length: needs 2 strips (4m + 1m), each 4m long.
+        // Can't share shelf (4 + 1 > 4), so 2 shelves × 4m = 8m.
+        let room = Room(name: "Big", widthCM: 500, lengthCM: 400, pileDirection: .up)
+        let project = Project(name: "P", rollWidthMetres: 4, rooms: [room])
+        let result = try PackingEngine.pack(project)
+        XCTAssertEqual(result.placements.count, 2)
+        XCTAssertEqual(result.totalLengthCM, 800)
+        let widths = result.placements.map(\.widthCM).sorted()
+        XCTAssertEqual(widths, [100, 400])
+    }
+
+    func testThreeStripsForVeryWideRoom() throws {
+        // 10m wide × 3m long room on a 4m roll, pile up.
+        // Strips along Length: 3 strips (4m + 4m + 2m), each 3m long.
+        // Can't pair (4+4>4, 4+2>4) → 3 shelves of 3m = 9m total.
+        let room = Room(name: "X", widthCM: 1000, lengthCM: 300, pileDirection: .up)
+        let project = Project(name: "P", rollWidthMetres: 4, rooms: [room])
+        let result = try PackingEngine.pack(project)
+        XCTAssertEqual(result.placements.count, 3)
+        XCTAssertEqual(result.totalLengthCM, 900)
+    }
+
+    // MARK: - Pile direction selects strip axis
+
+    func testPileUpStripsAlongLength() throws {
+        let room = Room(name: "R", widthCM: 200, lengthCM: 500, pileDirection: .up)
+        let project = Project(name: "P", rollWidthMetres: 4, rooms: [room])
+        let result = try PackingEngine.pack(project)
+        // 1 strip of 2m × 5m → 5m consumed.
+        XCTAssertEqual(result.totalLengthCM, 500)
+        XCTAssertEqual(result.placements[0].widthCM, 200)
+        XCTAssertEqual(result.placements[0].lengthCM, 500)
+    }
+
+    func testPileRightStripsAlongWidth() throws {
+        // Room 2m wide × 5m long with pile right → strips run along the Width axis.
+        // perpDim = 5m → ⌈500/400⌉ = 2 strips (400×200 + 100×200).
+        // Strips can't share a shelf (400 + 100 > 400 roll width) → 2 shelves of 200 = 400.
+        let room = Room(name: "R", widthCM: 200, lengthCM: 500, pileDirection: .right)
+        let project = Project(name: "P", rollWidthMetres: 4, rooms: [room])
+        let result = try PackingEngine.pack(project)
+        XCTAssertEqual(result.placements.count, 2)
+        XCTAssertEqual(result.totalLengthCM, 400)
+        XCTAssertTrue(result.placements.allSatisfy { $0.lengthCM == 200 })
+        XCTAssertEqual(result.placements.map(\.widthCM).sorted(), [100, 400])
+    }
+
+    func testPileDirectionPropagatedToStrips() throws {
+        let room = Room(name: "R", widthCM: 100, lengthCM: 300, pileDirection: .left)
+        let project = Project(name: "P", rollWidthMetres: 4, rooms: [room])
+        let result = try PackingEngine.pack(project)
+        XCTAssertTrue(result.placements.allSatisfy { $0.pileDirection == .left })
+    }
+
+    // MARK: - Optimal pile direction helper
+
+    func testOptimalPileDirectionPicksMinMetres() {
+        // 5 × 4 on R=4: along-length = 8, along-width = 5 → .right.
+        XCTAssertEqual(
+            Room.optimalPileDirection(widthCM: 500, lengthCM: 400, rollWidthCM: 400),
+            .right
         )
-        XCTAssertThrowsError(try PackingEngine.pack(project)) { error in
-            guard case .nonPositiveDimension = (error as? PackingError) else {
-                return XCTFail("Expected nonPositiveDimension, got \(error)")
-            }
+        // 3 × 5 on R=4: along-length = 5, along-width = 6 → .up.
+        XCTAssertEqual(
+            Room.optimalPileDirection(widthCM: 300, lengthCM: 500, rollWidthCM: 400),
+            .up
+        )
+        // Tie → .up (default).
+        XCTAssertEqual(
+            Room.optimalPileDirection(widthCM: 400, lengthCM: 400, rollWidthCM: 400),
+            .up
+        )
+    }
+
+    // MARK: - Cross-room nesting (the user's key requirement)
+
+    func testNarrowStripsFromDifferentRoomsShareShelf() throws {
+        // Two rooms whose strips can fit alongside each other:
+        //   Lounge: 4.50m wide × 3m long. Pile up → 2 strips: 4m × 3m + 0.5m × 3m.
+        //   Hall: 3m wide × 3m long. Pile up → 1 strip: 3m × 3m.
+        // After sort by length desc (all 300):
+        //   Shelf 1, height 300:
+        //     Place 4×3 (lounge full strip) → width used 400. No room for hall (3m) or lounge narrow (0.5m).
+        //   Shelf 2, height 300:
+        //     Place hall 3×3 → width used 300. Try lounge narrow 0.5×3 → 300+50 = 350 ≤ 400 ✓. Place.
+        //   Total = 600.
+        let lounge = Room(name: "Lounge", widthCM: 450, lengthCM: 300, pileDirection: .up)
+        let hall = Room(name: "Hall", widthCM: 300, lengthCM: 300, pileDirection: .up)
+        let project = Project(name: "House", rollWidthMetres: 4, rooms: [lounge, hall])
+        let result = try PackingEngine.pack(project)
+        XCTAssertEqual(result.totalLengthCM, 600,
+            "The 0.5m lounge strip must nest next to the 3m hall strip on shelf 2.")
+        XCTAssertEqual(result.perRoom.count, 2)
+    }
+
+    // MARK: - User scenario
+
+    func testUserScenarioSingleRoomFiveThreeWide() throws {
+        // User's original example: 5.3m × 4m room on a 5m roll.
+        // Pile up → 2 strips: 5m × 4m + 0.3m × 4m. Both 4m long, can't share (5 + 0.3 > 5).
+        // Total = 8m.
+        let room = Room(name: "Lounge", widthCM: 530, lengthCM: 400, pileDirection: .up)
+        let project = Project(name: "House", rollWidthMetres: 5, rooms: [room])
+        let result = try PackingEngine.pack(project)
+        XCTAssertEqual(result.placements.count, 2)
+        XCTAssertEqual(result.totalLengthCM, 800)
+    }
+
+    func testUserScenarioWithSecondRoomNestingTheNarrowStrip() throws {
+        // 5.3m × 4m lounge + 4.7m × 3m hall, all on 5m roll.
+        // Lounge pile up → 2 strips: 500×400 + 30×400.
+        // Hall pile up → 1 strip: 470×300.
+        // After sort (lengths 400, 400, 300):
+        //   Shelf 1, h=400: place 500×400 (lounge), no room for 30×400 (500+30>500),
+        //     no room for 470×300 (500+470>500).
+        //   Shelf 2, h=400: place 30×400 (lounge), try 470×300 → length 300≤400 ✓,
+        //     width 30+470=500 ≤500 ✓. Place. Done.
+        //   Total = 800.
+        let lounge = Room(name: "Lounge", widthCM: 530, lengthCM: 400, pileDirection: .up)
+        let hall = Room(name: "Hall", widthCM: 470, lengthCM: 300, pileDirection: .up)
+        let project = Project(name: "House", rollWidthMetres: 5, rooms: [lounge, hall])
+        let result = try PackingEngine.pack(project)
+        XCTAssertEqual(result.totalLengthCM, 800,
+            "Hall's 4.7m strip must nest next to the 0.3m lounge strip on shelf 2.")
+    }
+
+    // MARK: - Stairs
+
+    func testStairsKindPropagatedToBreakdown() throws {
+        let stairs = Room(name: "Stairs", widthCM: 70, lengthCM: 600,
+                          kind: .stairs, pileDirection: .up)
+        let project = Project(name: "House", rollWidthMetres: 4, rooms: [stairs])
+        let result = try PackingEngine.pack(project)
+        XCTAssertEqual(result.perRoom.count, 1)
+        XCTAssertEqual(result.perRoom[0].kind, .stairs)
+        XCTAssertEqual(result.perRoom[0].roomName, "Stairs")
+    }
+
+    // MARK: - Order
+
+    func testPerRoomBreakdownPreservesProjectOrder() throws {
+        let rooms = ["A", "B", "C"].map {
+            Room(name: $0, widthCM: 100, lengthCM: 200, pileDirection: .up)
         }
+        let project = Project(name: "P", rollWidthMetres: 4, rooms: rooms)
+        let result = try PackingEngine.pack(project)
+        XCTAssertEqual(result.perRoom.map(\.roomName), ["A", "B", "C"])
+    }
+
+    // MARK: - Internal strip-generation tests
+
+    func testStripsForRoomNarrowerThanRollProducesOne() {
+        let room = Room(name: "R", widthCM: 250, lengthCM: 500, pileDirection: .up)
+        let strips = PackingEngine.strips(for: room, rollWidthCM: 400)
+        XCTAssertEqual(strips.count, 1)
+        XCTAssertEqual(strips[0].widthCM, 250)
+        XCTAssertEqual(strips[0].lengthCM, 500)
+    }
+
+    func testStripsForOversizeRoomProducesFullPlusRemainder() {
+        let room = Room(name: "R", widthCM: 530, lengthCM: 400, pileDirection: .up)
+        let strips = PackingEngine.strips(for: room, rollWidthCM: 500)
+        XCTAssertEqual(strips.count, 2)
+        XCTAssertEqual(strips.map(\.widthCM).sorted(), [30, 500])
+        XCTAssertTrue(strips.allSatisfy { $0.lengthCM == 400 })
+    }
+
+    func testStripsForRoomWithLeftPileGenerateAlongWidth() {
+        // Pile left → strips along Width axis. Room width becomes the strip length.
+        let room = Room(name: "R", widthCM: 600, lengthCM: 200, pileDirection: .left)
+        let strips = PackingEngine.strips(for: room, rollWidthCM: 400)
+        // perpDimension = lengthCM = 200; stripLength = widthCM = 600
+        // Ceil(200/400) = 1 strip of 200 × 600.
+        XCTAssertEqual(strips.count, 1)
+        XCTAssertEqual(strips[0].widthCM, 200)
+        XCTAssertEqual(strips[0].lengthCM, 600)
     }
 
     // MARK: - Result conversion
@@ -309,5 +239,14 @@ final class PackingEngineTests: XCTestCase {
     func testTotalLengthMetresConvertsFromCM() {
         let r = PackingResult(totalLengthCM: 875, perRoom: [], placements: [])
         XCTAssertEqual(r.totalLengthMetres, 8.75, accuracy: 0.0001)
+    }
+
+    // MARK: - Pile rotation utility (kept from earlier)
+
+    func testPileRotationCycleIsConsistent() {
+        XCTAssertEqual(PileDirection.up.rotated90Clockwise(), .right)
+        XCTAssertEqual(PileDirection.right.rotated90Clockwise(), .down)
+        XCTAssertEqual(PileDirection.down.rotated90Clockwise(), .left)
+        XCTAssertEqual(PileDirection.left.rotated90Clockwise(), .up)
     }
 }

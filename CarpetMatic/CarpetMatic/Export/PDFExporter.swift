@@ -44,8 +44,8 @@ enum PDFExporter {
 
             for breakdown in result.perRoom {
                 let header = breakdown.kind == .stairs
-                    ? "\(breakdown.roomName) — stairs"
-                    : breakdown.roomName
+                    ? "\(breakdown.roomName) — stairs (\(breakdown.strips.count) strip\(breakdown.strips.count == 1 ? "" : "s"))"
+                    : "\(breakdown.roomName) (\(breakdown.strips.count) strip\(breakdown.strips.count == 1 ? "" : "s"))"
                 cursorY = drawText(
                     header,
                     at: CGPoint(x: leftMargin, y: cursorY),
@@ -54,12 +54,12 @@ enum PDFExporter {
                 )
                 cursorY += 2
 
-                for placement in breakdown.pieces {
+                for strip in breakdown.strips {
                     let line = String(
                         format: "    %.2f × %.2f m   pile: %@",
-                        Double(placement.widthCM) / 100.0,
-                        Double(placement.lengthCM) / 100.0,
-                        placement.pileDirection.rawValue
+                        Double(strip.widthCM) / 100.0,
+                        Double(strip.lengthCM) / 100.0,
+                        strip.pileDirection.rawValue
                     )
                     cursorY = drawText(
                         line,

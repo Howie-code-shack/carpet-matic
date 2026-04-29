@@ -48,25 +48,24 @@ If those conflict with this file, the docs win. If a user instruction conflicts 
 
 ## What this app is (one paragraph)
 
-A SwiftUI multiplatform (iPhone + Mac, iOS 17+ / macOS 14+) carpet calculator. Users create a Project (per house/job) with a fixed roll width (1/2/3/4/5 m), add Rooms (Rectangle or Stairs), and add rectangular Pieces with width × length and pile direction. The calc engine **bin-packs every piece in the entire project onto a single fixed-width roll**, minimising total linear metres. Persistence is SwiftData with CloudKit sync. Output is a per-room breakdown with pile arrows; export is PDF.
+A SwiftUI iOS app (runs on iPhone and on Mac as "Designed for iPad", iOS 17+ / macOS 14+) for carpet fitters. Users create a Project (per house/job) with a fixed roll width (1/2/3/4/5 m) and add Rooms — each Room is one rectangle with a name, width, length, kind (Rectangle or Stairs), and pile direction. The engine **generates strips for each room** (pile up/down → strips along Length, pile left/right → strips along Width), then **bin-packs every strip from every room onto a single fixed-width roll**, minimising total linear metres. Persistence is SwiftData with CloudKit sync. Output is a per-room breakdown showing each strip with its pile arrow; export is PDF.
 
 ## Non-obvious decisions you must respect
 
 Things that took multiple rounds of user clarification — easy to get wrong if you only skim the docs:
 
-- **Bin-packing is project-wide, not per-room.** Pieces from different rooms share roll length. The 5.3 m wide example: the user enters one 5 m × L piece and one 0.3 m × L piece (in the same logical room), and the engine fits the 0.3 m piece anywhere it can on the roll — possibly nested next to a different room's piece. Don't write a per-room calc.
-- **No software-managed joins.** Each input rectangle = one uncut piece from the roll. If the user wants a join (e.g. a room wider than the roll), they enter multiple pieces themselves.
-- **No software-managed waste percentage.** The user pre-pads at input (currently +10 cm). Don't add a waste % field.
-- **No L-shape, T-shape, or polygon support.** Rectangles + Stairs only. Stairs is a `Room.kind`, not a separate `Piece` type — a Stairs room contains a single rectangle whose length is the user-supplied unrolled total.
+- **The user inputs ROOM DIMENSIONS, not pieces.** Each Room is one rectangle (width × length + pile direction). The engine computes strips internally. There is **no Piece editor screen and no `PieceModel`**. If a future request asks the user to add pieces manually inside a room, push back unless the user explicitly says so — that was the original wrong abstraction the user corrected on 2026-04-29.
+- **Strip axis follows pile direction.** Pile up/down → strips along the room's Length axis; pile left/right → strips along Width. Rooms wider than the roll on the chosen axis are split into multiple strips automatically (first n−1 are roll-width, last is the remainder).
+- **Bin-packing is project-wide.** Strips from different rooms share roll length where they fit (cross-room nesting). Don't write a per-room calc.
+- **Auto-suggested pile direction.** When the user creates a room, the app picks the pile direction that minimises *per-room* linear metres via `Room.optimalPileDirection(...)`. The user can override.
+- **No software-managed joins, no waste %, no L-shape, no multi-rectangle rooms** in MVP. Stairs is a `Room.kind`, treated as a single rectangle (user enters total unrolled stair length).
 - **Dimensions stored as integer centimetres** in SwiftData (`widthCM: Int`, `lengthCM: Int`). Convert to/from metres at the UI boundary. Avoids float drift across CloudKit sync and PDF export.
-- **`isRotated` is a stored flag**, not a view-time computation. The packing engine sees pieces in their post-rotation orientation. Pile direction rotates *with* the piece (pile is a property of the cut, not of the room).
-- **Per-piece rotate button.** Not per-room, not per-project. Don't move it.
-- **No auto-rotation in the packer.** The engine uses the orientation the user has set; it never decides to rotate a piece itself.
 - **Algorithm is First-Fit-Decreasing shelf packing.** Deterministic, fast, not optimal — and that's intentional. The user explicitly prioritises consistency and review-ability over perfect optimisation.
-- **Result view is per-room only.** No graphical layout view in MVP; pile arrows render inline next to each piece in the breakdown. The packing engine internally tracks piece positions on the roll so a future graphical view can be added without re-running it.
+- **Result view is per-room only.** No graphical layout view in MVP; pile arrows render inline next to each strip in the breakdown. The engine internally tracks each strip's `(xCM, yCM)` position on the roll so a future graphical view can be added without re-running it.
 - **PDF export only.** `.pages`, RTF, DOCX are explicitly out of scope for MVP.
 - **CloudKit constraints.** Every SwiftData property must be optional or have a default; relationships need optional inverses. Required by SwiftData ↔ CloudKit interop.
-- **Engine consumes plain value types, not `@Model` classes.** The Xcode app keeps `@Model` classes (`ProjectModel`/`RoomModel`/`PieceModel`) for SwiftData and converts them to the engine's `Project` / `Room` / `Piece` structs via the `Adapters/` layer before calling `PackingEngine.pack(_:)`. This keeps the engine SwiftData-free and unit-testable from `swift test`. Don't import SwiftData into `Engine/`.
+- **Engine consumes plain value types, not `@Model` classes.** The Xcode app keeps `@Model` classes (`ProjectModel`, `RoomModel`) for SwiftData and converts them to the engine's `Project` / `Room` structs via the `Adapters/` layer before calling `PackingEngine.pack(_:)`. This keeps the engine SwiftData-free and unit-testable from `swift test`. Don't import SwiftData into `Engine/`.
+- **Engine `Piece` exists but is never user-facing.** It's the rectangle the FFD packer consumes (a "strip"). Not persisted, not exposed in UI, not in `@Model` schema.
 - **Enums are stored as String raw values** in `@Model` classes (`kindRaw`, `pileDirectionRaw`) with computed-property wrappers. This is more CloudKit-friendly than storing the enum directly. Don't "simplify" by removing the wrappers without testing CloudKit sync.
 - **iOS-only target with "Designed for iPad on Mac".** The Xcode project is the iOS App template, not Multiplatform. On Apple Silicon Macs it runs via the "iPad apps on Mac" path. If the user wants a true native Mac UI later, that's a separate effort (NavigationSplitView refactor, AppKit-tuned controls, etc.) — don't promise it without scoping.
 

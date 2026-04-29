@@ -31,19 +31,24 @@ struct ResultView: View {
 
                 ForEach(result.perRoom, id: \.roomID) { breakdown in
                     Section {
-                        ForEach(breakdown.pieces, id: \.pieceID) { placement in
+                        ForEach(breakdown.strips, id: \.id) { strip in
                             HStack {
-                                Text("\(DimensionFormat.metres(fromCM: placement.widthCM)) × \(DimensionFormat.metres(fromCM: placement.lengthCM)) m")
+                                Text("\(DimensionFormat.metres(fromCM: strip.widthCM)) × \(DimensionFormat.metres(fromCM: strip.lengthCM)) m")
                                     .monospacedDigit()
                                 Spacer()
-                                PileArrowView(direction: placement.pileDirection)
+                                PileArrowView(direction: strip.pileDirection)
                             }
                         }
                     } header: {
                         HStack {
                             Text(breakdown.roomName)
+                            Spacer()
+                            Text("\(breakdown.strips.count) strip\(breakdown.strips.count == 1 ? "" : "s")")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                             if breakdown.kind == .stairs {
                                 Text("· stairs")
+                                    .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
                         }
@@ -97,9 +102,11 @@ struct ResultView: View {
 
     private func prepareExport() {
         guard let result else { return }
-        let data = PDFExporter.makePDF(projectName: project.name,
-                                       rollWidthMetres: project.rollWidthMetres,
-                                       result: result)
+        let data = PDFExporter.makePDF(
+            projectName: project.name,
+            rollWidthMetres: project.rollWidthMetres,
+            result: result
+        )
         exportDocument = PDFExportDocument(data: data)
         showingExporter = true
     }
@@ -108,10 +115,8 @@ struct ResultView: View {
         switch error {
         case .invalidRollWidthMetres(let m):
             return "Invalid roll width: \(m) m. Must be one of 1, 2, 3, 4, 5."
-        case .pieceWiderThanRoll(_, let pieceWidthCM, let rollWidthCM):
-            return "A piece is \(DimensionFormat.metres(fromCM: pieceWidthCM)) m wide; the roll is only \(DimensionFormat.metres(fromCM: rollWidthCM)) m. Edit or rotate the piece."
-        case .nonPositiveDimension:
-            return "A piece has a zero or negative dimension. Edit it before calculating."
+        case .invalidRoomDimensions:
+            return "A room has invalid dimensions. Edit and enter both width and length."
         }
     }
 }

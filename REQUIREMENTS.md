@@ -1,14 +1,14 @@
 # Requirements — carpet-matic
 
-Apple-platform (iPhone + Mac) app to calculate carpet requirements for a job by laying out user-supplied rectangular pieces onto a roll of fixed width and reporting the total linear metres required.
+Apple-platform (iPhone + Mac) app for carpet fitters. The user enters **room dimensions**; the app computes the strips needed, packs them across the roll, and reports the total linear metres required.
 
 ## Glossary
 
 - **Project** — one job (e.g. a house).
-- **Room** — a named group of pieces within a project.
-- **Piece** — a rectangle to be cut from the roll, defined by width × length and pile direction.
+- **Room** — a named rectangle within a project, defined by width × length and a pile direction.
+- **Strip** — a piece cut from the roll. Strips are computed by the engine from room dimensions; the user never enters strips directly.
 - **Roll** — the carpet roll for the project, fixed width (1, 2, 3, 4, or 5 m), unlimited length.
-- **Layout** — the arrangement of pieces on the roll computed by the calculator.
+- **Layout** — the arrangement of strips on the roll computed by the engine.
 - **Linear metre** — a unit of roll length consumed.
 
 ## Functional requirements
@@ -18,55 +18,53 @@ Apple-platform (iPhone + Mac) app to calculate carpet requirements for a job by 
 - **F1.1** The user can create, rename, and delete projects.
 - **F1.2** Each project has a name and a roll width chosen from {1, 2, 3, 4, 5} m.
 - **F1.3** Projects persist across app launches.
-- **F1.4** Projects sync between the user's iPhone and Mac via the user's iCloud account.
+- **F1.4** Projects sync between the user's iPhone and Mac via the user's iCloud account (CloudKit).
 - **F1.5** The user can export a project's calculation result to PDF and share it.
 
-### F2. Room and piece management
+### F2. Room management
 
 - **F2.1** A project contains zero or more rooms.
-- **F2.2** Each room has a name and a kind: **Rectangle** or **Stairs**.
-- **F2.3** A room contains one or more pieces.
-- **F2.4** Each piece has: width (m), length (m), pile direction (one of four cardinal directions), and a per-piece rotated flag.
-- **F2.5** A piece's width must be ≤ the project's roll width (validated at input).
-- **F2.6** Dimensions are entered in metres to 1 cm precision. The software does not auto-pad measurements; the user pre-pads at input.
-- **F2.7** The user can rotate a piece 90° via a per-piece rotate button. Rotating swaps width and length, and the pile direction rotates with the piece (pile is a property of the cut, not of the room).
+- **F2.2** Each room has: a name, a kind (**Rectangle** or **Stairs**), width (m), length (m), and a pile direction (one of four cardinal directions).
+- **F2.3** Dimensions are entered in metres to 1 cm precision. The software does not auto-pad measurements; the user pre-pads at input.
+- **F2.4** When a room is created, the app suggests the pile direction that minimises linear metres for that room. The user can override.
+- **F2.5** Rooms wider than the roll on the chosen strip axis are split automatically into multiple strips (first n−1 are roll-width wide; last is the remainder). The user does not split rooms manually.
+- **F2.6** Stairs is treated as a rectangle: the user enters the stair carpet's width × total unrolled length. There is no dedicated steps/tread calculator in MVP.
 
 ### F3. Calculation
 
-- **F3.1** The calculator packs all pieces from all rooms in a project onto a single roll of the project's chosen width.
-- **F3.2** The calculator's goal is to minimise the total linear metres of roll consumed. An optimal packing is **not required** — the user reviews the result and corrects via the rotate button before committing.
-- **F3.3** The calculator does **not** split or join pieces. Each input piece is placed as a single uncut rectangle. If the user wants a join, they enter two adjacent pieces themselves.
-- **F3.4** The calculator does **not** auto-rotate pieces. It uses the orientation the user has set.
-- **F3.5** The calculator returns: the total linear metres consumed, and a per-room breakdown listing the pieces in that room.
+- **F3.1** The calculator generates strips for every room (pile up/down → strips along Length; pile left/right → strips along Width) and bin-packs them across the project onto a single roll of the project's chosen width.
+- **F3.2** The calculator's goal is to minimise total linear metres of roll consumed. An optimal packing is **not required** — the user reviews and overrides pile direction per room as needed.
+- **F3.3** The calculator does **not** auto-rotate or override the user's chosen pile direction. It uses the direction the user has set; the optimisation happens by suggesting a default at room creation.
+- **F3.4** The calculator returns: the total linear metres consumed, and a per-room breakdown listing the strips needed for each room.
 
 ### F4. Output
 
 - **F4.1** The result view shows the total linear metres required for the project.
-- **F4.2** The result view shows a per-room breakdown: each room's name, kind (Rectangle or Stairs), and for each piece its width × length and pile direction (rendered as a small arrow icon next to the piece line).
-- **F4.3** The result is recomputed automatically on any change to project, room, or piece data.
+- **F4.2** The result view shows a per-room breakdown: each room's name, kind, strip count, and for each strip its width × length and pile direction (rendered as a small arrow icon).
+- **F4.3** The result is recomputed automatically on any change to project, room, or roll data.
 - **F4.4** The PDF export contains the same information as the on-screen result.
 
 ## Non-functional requirements
 
 - **N1** Offline-first. All calculation runs locally; iCloud sync is non-blocking and degrades gracefully if offline.
 - **N2** Clean, simple UI focused on speed and usability — no clutter, fast input.
-- **N3** Native experience on iPhone and Mac via SwiftUI multiplatform.
+- **N3** Native experience on iPhone and Mac (SwiftUI iOS app, runs on Mac via "Designed for iPad" mode).
 - **N4** Targets iOS 17+ and macOS 14+.
 
 ## Out of scope (MVP)
 
 - L-shaped rooms and other non-rectangular shapes (rectangle + stairs only).
-- Software-managed joins / mid-strip seams (the user enters multiple pieces instead).
-- Software-managed waste/safety percentage (the user pre-pads at input).
+- Multi-rectangle rooms (a Room is a single rectangle in MVP).
+- Software-managed waste / safety percentage (the user pre-pads at input).
 - Per-roll-length output view (only a per-room breakdown in MVP).
-- Full graphical layout view of cut pieces on the roll. (Pile arrows live next to each piece line in the per-room breakdown.)
+- Full graphical layout view of cut strips on the roll. Pile arrows live next to each strip line in the per-room breakdown.
 - Cost estimation (price per linear metre × total).
 - Pages (`.pages`) export, RTF, or DOCX. PDF only.
 
 ## Open items
 
-- The visual design of the per-piece **rotate button** is TBD pending a reference screenshot from the user's existing software.
+- The visual design of the **pile-direction picker / rotate UI** is TBD pending a reference screenshot from the user's existing software.
 
 ## Future backlog
 
-L-shape and other shapes; waste % field; joined-strip handling; full graphical layout view; per-roll-length output view; cost estimation; RTF/DOCX/Pages export; TestFlight distribution; a more sophisticated packing algorithm; a real stair calculator (steps × tread × riser).
+L-shape and other shapes; multi-rectangle rooms; waste % field; full graphical layout view; per-roll-length output view; cost estimation; RTF/DOCX/Pages export; TestFlight distribution; a more sophisticated packing algorithm; a real stair calculator (steps × tread × riser).

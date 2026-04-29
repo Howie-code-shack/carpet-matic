@@ -10,7 +10,6 @@ struct CarpetMaticApp: App {
         .modelContainer(for: [
             ProjectModel.self,
             RoomModel.self,
-            PieceModel.self,
         ])
     }
 }

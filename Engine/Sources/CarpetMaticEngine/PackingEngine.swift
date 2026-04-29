@@ -8,20 +8,20 @@ public enum PackingEngine {
         }
 
         let rollWidthCM = project.rollWidthCM
-        var queue: [PieceWithContext] = []
+
+        // Step 1: validate rooms.
         for room in project.rooms {
-            for piece in room.pieces {
-                guard piece.widthCM > 0, piece.lengthCM > 0 else {
-                    throw PackingError.nonPositiveDimension(pieceID: piece.id)
-                }
-                if piece.effectiveWidthCM > rollWidthCM {
-                    throw PackingError.pieceWiderThanRoll(
-                        pieceID: piece.id,
-                        pieceWidthCM: piece.effectiveWidthCM,
-                        rollWidthCM: rollWidthCM
-                    )
-                }
-                queue.append(PieceWithContext(piece: piece, roomID: room.id))
+            guard room.widthCM > 0, room.lengthCM > 0 else {
+                throw PackingError.invalidRoomDimensions(roomID: room.id)
+            }
+        }
+
+        // Step 2: generate strips for every room.
+        var queue: [StripWithContext] = []
+        for room in project.rooms {
+            let strips = strips(for: room, rollWidthCM: rollWidthCM)
+            for strip in strips {
+                queue.append(StripWithContext(strip: strip, roomID: room.id))
             }
         }
 
@@ -29,40 +29,38 @@ public enum PackingEngine {
             return PackingResult(totalLengthCM: 0, perRoom: [], placements: [])
         }
 
-        // First-Fit-Decreasing shelf packer:
-        //   1. Sort pieces by effective length descending.
-        //   2. Open a shelf whose height = the longest unplaced piece's length.
-        //   3. Place pieces left-to-right that fit the shelf height and remaining width.
-        //   4. When nothing more fits, advance to the next shelf above.
-        queue.sort { $0.piece.effectiveLengthCM > $1.piece.effectiveLengthCM }
+        // Step 3: First-Fit-Decreasing shelf packer.
+        //   Sort by length descending, open shelves whose height = the longest
+        //   unplaced strip, fill left-to-right with anything that fits.
+        queue.sort { $0.strip.lengthCM > $1.strip.lengthCM }
 
-        var placements: [PiecePlacement] = []
+        var placements: [StripPlacement] = []
         var rollLengthUsedCM = 0
 
         while !queue.isEmpty {
-            let shelfHeightCM = queue[0].piece.effectiveLengthCM
+            let shelfHeightCM = queue[0].strip.lengthCM
             var widthUsedCM = 0
             var idx = 0
 
             while idx < queue.count {
                 let candidate = queue[idx]
-                let pieceWidth = candidate.piece.effectiveWidthCM
-                let pieceLength = candidate.piece.effectiveLengthCM
+                let stripWidth = candidate.strip.widthCM
+                let stripLength = candidate.strip.lengthCM
 
-                let fitsInShelfHeight = pieceLength <= shelfHeightCM
-                let fitsInRemainingWidth = widthUsedCM + pieceWidth <= rollWidthCM
+                let fitsHeight = stripLength <= shelfHeightCM
+                let fitsWidth = widthUsedCM + stripWidth <= rollWidthCM
 
-                if fitsInShelfHeight && fitsInRemainingWidth {
-                    placements.append(PiecePlacement(
-                        pieceID: candidate.piece.id,
+                if fitsHeight && fitsWidth {
+                    placements.append(StripPlacement(
+                        id: candidate.strip.id,
                         roomID: candidate.roomID,
-                        widthCM: pieceWidth,
-                        lengthCM: pieceLength,
-                        pileDirection: candidate.piece.effectivePileDirection,
+                        widthCM: stripWidth,
+                        lengthCM: stripLength,
+                        pileDirection: candidate.strip.pileDirection,
                         xCM: widthUsedCM,
                         yCM: rollLengthUsedCM
                     ))
-                    widthUsedCM += pieceWidth
+                    widthUsedCM += stripWidth
                     queue.remove(at: idx)
                 } else {
                     idx += 1
@@ -73,7 +71,6 @@ public enum PackingEngine {
         }
 
         let perRoom = buildRoomBreakdowns(project: project, placements: placements)
-
         return PackingResult(
             totalLengthCM: rollLengthUsedCM,
             perRoom: perRoom,
@@ -81,16 +78,41 @@ public enum PackingEngine {
         )
     }
 
-    private struct PieceWithContext {
-        let piece: Piece
+    /// Generate the strips needed to carpet a room on a given roll.
+    /// Strip axis is determined by the room's pile direction:
+    ///  * up/down → strips run along Length (each strip is some-width × Length).
+    ///  * left/right → strips run along Width (each strip is some-width × Width).
+    /// First n−1 strips are roll-width wide; the last is the remainder.
+    /// Internal so tests can target it directly.
+    static func strips(for room: Room, rollWidthCM: Int) -> [Piece] {
+        let stripsAlongLength = room.pileDirection.stripsAlongLength
+        let perpDimensionCM = stripsAlongLength ? room.widthCM : room.lengthCM
+        let stripLengthCM   = stripsAlongLength ? room.lengthCM : room.widthCM
+
+        var strips: [Piece] = []
+        var remaining = perpDimensionCM
+        while remaining > 0 {
+            let stripWidth = min(remaining, rollWidthCM)
+            strips.append(Piece(
+                widthCM: stripWidth,
+                lengthCM: stripLengthCM,
+                pileDirection: room.pileDirection
+            ))
+            remaining -= stripWidth
+        }
+        return strips
+    }
+
+    private struct StripWithContext {
+        let strip: Piece
         let roomID: UUID
     }
 
     private static func buildRoomBreakdowns(
         project: Project,
-        placements: [PiecePlacement]
+        placements: [StripPlacement]
     ) -> [RoomBreakdown] {
-        var byRoom: [UUID: [PiecePlacement]] = [:]
+        var byRoom: [UUID: [StripPlacement]] = [:]
         for placement in placements {
             byRoom[placement.roomID, default: []].append(placement)
         }
@@ -102,7 +124,7 @@ public enum PackingEngine {
                 roomID: room.id,
                 roomName: room.name,
                 kind: room.kind,
-                pieces: roomPlacements
+                strips: roomPlacements
             )
         }
     }

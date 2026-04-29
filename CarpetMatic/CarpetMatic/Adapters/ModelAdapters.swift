@@ -17,20 +17,10 @@ extension RoomModel {
         CarpetMaticEngine.Room(
             id: id,
             name: name,
-            kind: kind,
-            pieces: (pieces ?? []).map { $0.toEngine() }
-        )
-    }
-}
-
-extension PieceModel {
-    func toEngine() -> CarpetMaticEngine.Piece {
-        CarpetMaticEngine.Piece(
-            id: id,
             widthCM: widthCM,
             lengthCM: lengthCM,
-            pileDirection: pileDirection,
-            isRotated: isRotated
+            kind: kind,
+            pileDirection: pileDirection
         )
     }
 }

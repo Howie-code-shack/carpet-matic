@@ -16,58 +16,54 @@ public enum PileDirection: String, Codable, Sendable, CaseIterable {
         case .left: return .up
         }
     }
-}
 
-public struct Piece: Identifiable, Hashable, Sendable {
-    public let id: UUID
-    public var widthCM: Int
-    public var lengthCM: Int
-    public var pileDirection: PileDirection
-    public var isRotated: Bool
-
-    public init(
-        id: UUID = UUID(),
-        widthCM: Int,
-        lengthCM: Int,
-        pileDirection: PileDirection = .up,
-        isRotated: Bool = false
-    ) {
-        self.id = id
-        self.widthCM = widthCM
-        self.lengthCM = lengthCM
-        self.pileDirection = pileDirection
-        self.isRotated = isRotated
-    }
-
-    public var effectiveWidthCM: Int {
-        isRotated ? lengthCM : widthCM
-    }
-
-    public var effectiveLengthCM: Int {
-        isRotated ? widthCM : lengthCM
-    }
-
-    public var effectivePileDirection: PileDirection {
-        isRotated ? pileDirection.rotated90Clockwise() : pileDirection
+    /// True if strips for a room with this pile run along the room's Length axis.
+    /// Pile up/down → strips along Length; pile left/right → strips along Width.
+    public var stripsAlongLength: Bool {
+        switch self {
+        case .up, .down: return true
+        case .left, .right: return false
+        }
     }
 }
 
+/// A single rectangular room. The engine generates the strips itself; the user
+/// never enters strips/pieces directly.
 public struct Room: Identifiable, Hashable, Sendable {
     public let id: UUID
     public var name: String
+    public var widthCM: Int
+    public var lengthCM: Int
     public var kind: RoomKind
-    public var pieces: [Piece]
+    public var pileDirection: PileDirection
 
     public init(
         id: UUID = UUID(),
-        name: String,
+        name: String = "",
+        widthCM: Int,
+        lengthCM: Int,
         kind: RoomKind = .rectangle,
-        pieces: [Piece] = []
+        pileDirection: PileDirection = .up
     ) {
         self.id = id
         self.name = name
+        self.widthCM = widthCM
+        self.lengthCM = lengthCM
         self.kind = kind
-        self.pieces = pieces
+        self.pileDirection = pileDirection
+    }
+
+    /// The pile direction that yields the fewest linear metres of carpet for this
+    /// room on a given roll. Returns `.up` if strips along Length wins (or ties),
+    /// `.right` otherwise. Only the axis (up/down vs left/right) matters for the math.
+    public static func optimalPileDirection(
+        widthCM: Int,
+        lengthCM: Int,
+        rollWidthCM: Int
+    ) -> PileDirection {
+        let alongLength = ceilDiv(widthCM, rollWidthCM) * lengthCM
+        let alongWidth  = ceilDiv(lengthCM, rollWidthCM) * widthCM
+        return alongLength <= alongWidth ? .up : .right
     }
 }
 
@@ -92,4 +88,32 @@ public struct Project: Identifiable, Hashable, Sendable {
     }
 
     public var rollWidthCM: Int { rollWidthMetres * 100 }
+}
+
+/// Internal helper exposed because both the engine and consumers compute strip counts.
+@usableFromInline
+internal func ceilDiv(_ a: Int, _ b: Int) -> Int {
+    precondition(b > 0, "ceilDiv divisor must be positive")
+    return (a + b - 1) / b
+}
+
+/// A rectangle the packer places on the roll. With the room-input model this is
+/// always a strip the engine generated from a Room — not a user input.
+public struct Piece: Identifiable, Hashable, Sendable {
+    public let id: UUID
+    public var widthCM: Int
+    public var lengthCM: Int
+    public var pileDirection: PileDirection
+
+    public init(
+        id: UUID = UUID(),
+        widthCM: Int,
+        lengthCM: Int,
+        pileDirection: PileDirection = .up
+    ) {
+        self.id = id
+        self.widthCM = widthCM
+        self.lengthCM = lengthCM
+        self.pileDirection = pileDirection
+    }
 }
