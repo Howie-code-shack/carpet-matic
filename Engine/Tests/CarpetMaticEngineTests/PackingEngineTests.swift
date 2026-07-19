@@ -20,6 +20,16 @@ final class PackingEngineTests: XCTestCase {
         }
     }
 
+    func testNegativeDimensionRoomThrows() {
+        let room = Room(name: "Bad", widthCM: 300, lengthCM: -200)
+        let project = Project(name: "P", rollWidthMetres: 4, rooms: [room])
+        XCTAssertThrowsError(try PackingEngine.pack(project)) { error in
+            guard case .invalidRoomDimensions = (error as? PackingError) else {
+                return XCTFail("Expected invalidRoomDimensions, got \(error)")
+            }
+        }
+    }
+
     func testZeroDimensionRoomThrows() {
         let room = Room(name: "Bad", widthCM: 0, lengthCM: 200)
         let project = Project(name: "P", rollWidthMetres: 4, rooms: [room])
@@ -65,6 +75,17 @@ final class PackingEngineTests: XCTestCase {
         XCTAssertEqual(result.totalLengthCM, 800)
         let widths = result.placements.map(\.widthCM).sorted()
         XCTAssertEqual(widths, [100, 400])
+    }
+
+    func testRoomWiderThanRollOnBothAxes() throws {
+        // 5m × 5m room on a 4m roll, pile up → 2 strips (4m + 1m), each 5m long.
+        // Can't share a shelf (4 + 1 > 4) → 2 shelves × 5m = 10m.
+        let room = Room(name: "Huge", widthCM: 500, lengthCM: 500, pileDirection: .up)
+        let project = Project(name: "P", rollWidthMetres: 4, rooms: [room])
+        let result = try PackingEngine.pack(project)
+        XCTAssertEqual(result.placements.count, 2)
+        XCTAssertEqual(result.placements.map(\.widthCM).sorted(), [100, 400])
+        XCTAssertEqual(result.totalLengthCM, 1000)
     }
 
     func testThreeStripsForVeryWideRoom() throws {
@@ -203,6 +224,108 @@ final class PackingEngineTests: XCTestCase {
         let project = Project(name: "P", rollWidthMetres: 4, rooms: rooms)
         let result = try PackingEngine.pack(project)
         XCTAssertEqual(result.perRoom.map(\.roomName), ["A", "B", "C"])
+    }
+
+    // MARK: - Placement geometry
+
+    /// Asserts every placement stays inside the roll and no two placements overlap.
+    private func assertPlacementsValid(
+        _ result: PackingResult,
+        rollWidthCM: Int,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        for p in result.placements {
+            XCTAssertGreaterThanOrEqual(p.xCM, 0, file: file, line: line)
+            XCTAssertGreaterThanOrEqual(p.yCM, 0, file: file, line: line)
+            XCTAssertLessThanOrEqual(p.xCM + p.widthCM, rollWidthCM,
+                "Strip \(p.id) sticks out past the roll width.", file: file, line: line)
+            XCTAssertLessThanOrEqual(p.yCM + p.lengthCM, result.totalLengthCM,
+                "Strip \(p.id) sticks out past the reported roll length.", file: file, line: line)
+        }
+        let placements = result.placements
+        for i in placements.indices {
+            for j in placements.indices where j > i {
+                let a = placements[i], b = placements[j]
+                let overlapX = a.xCM < b.xCM + b.widthCM && b.xCM < a.xCM + a.widthCM
+                let overlapY = a.yCM < b.yCM + b.lengthCM && b.yCM < a.yCM + a.lengthCM
+                XCTAssertFalse(overlapX && overlapY,
+                    "Strips \(a.id) and \(b.id) overlap on the roll.", file: file, line: line)
+            }
+        }
+    }
+
+    func testPlacementGeometryForNestedScenario() throws {
+        // The cross-room nesting scenario: strips share a shelf, so this
+        // exercises side-by-side placement coordinates.
+        let lounge = Room(name: "Lounge", widthCM: 530, lengthCM: 400, pileDirection: .up)
+        let hall = Room(name: "Hall", widthCM: 470, lengthCM: 300, pileDirection: .up)
+        let project = Project(name: "House", rollWidthMetres: 5, rooms: [lounge, hall])
+        let result = try PackingEngine.pack(project)
+        assertPlacementsValid(result, rollWidthCM: 500)
+    }
+
+    func testPlacementGeometryForManyMixedRooms() throws {
+        // A larger mixed job: varied sizes and both pile axes.
+        let rooms = [
+            Room(name: "Lounge", widthCM: 530, lengthCM: 420, pileDirection: .up),
+            Room(name: "Dining", widthCM: 310, lengthCM: 390, pileDirection: .right),
+            Room(name: "Hall", widthCM: 110, lengthCM: 480, pileDirection: .up),
+            Room(name: "Landing", widthCM: 250, lengthCM: 190, pileDirection: .left),
+            Room(name: "Stairs", widthCM: 70, lengthCM: 600, kind: .stairs, pileDirection: .up),
+            Room(name: "Bed 1", widthCM: 420, lengthCM: 360, pileDirection: .down),
+        ]
+        let project = Project(name: "House", rollWidthMetres: 4, rooms: rooms)
+        let result = try PackingEngine.pack(project)
+        assertPlacementsValid(result, rollWidthCM: 400)
+        // Every generated strip must be placed exactly once.
+        let expectedStripCount = rooms
+            .map { PackingEngine.strips(for: $0, rollWidthCM: 400).count }
+            .reduce(0, +)
+        XCTAssertEqual(result.placements.count, expectedStripCount)
+    }
+
+    // MARK: - Strip rects (room-relative geometry)
+
+    func testStripRectsAlongLengthTileTheRoom() {
+        let rects = PackingEngine.stripRects(
+            widthCM: 530, lengthCM: 400, pileDirection: .up, rollWidthCM: 500
+        )
+        XCTAssertEqual(rects.count, 2)
+        XCTAssertEqual(rects[0], StripRect(xCM: 0, yCM: 0, widthCM: 500, heightCM: 400))
+        XCTAssertEqual(rects[1], StripRect(xCM: 500, yCM: 0, widthCM: 30, heightCM: 400))
+    }
+
+    func testStripRectsAlongWidthTileTheRoom() {
+        let rects = PackingEngine.stripRects(
+            widthCM: 200, lengthCM: 500, pileDirection: .right, rollWidthCM: 400
+        )
+        XCTAssertEqual(rects.count, 2)
+        XCTAssertEqual(rects[0], StripRect(xCM: 0, yCM: 0, widthCM: 200, heightCM: 400))
+        XCTAssertEqual(rects[1], StripRect(xCM: 0, yCM: 400, widthCM: 200, heightCM: 100))
+    }
+
+    func testStripRectsEmptyForNonPositiveDimensions() {
+        XCTAssertTrue(PackingEngine.stripRects(
+            widthCM: 0, lengthCM: 400, pileDirection: .up, rollWidthCM: 400
+        ).isEmpty)
+        XCTAssertTrue(PackingEngine.stripRects(
+            widthCM: 300, lengthCM: -5, pileDirection: .right, rollWidthCM: 400
+        ).isEmpty)
+    }
+
+    func testStripsMatchStripRects() {
+        // The Piece view of a room's strips must agree with the rect view.
+        let room = Room(name: "R", widthCM: 610, lengthCM: 480, pileDirection: .left)
+        let strips = PackingEngine.strips(for: room, rollWidthCM: 400)
+        let rects = PackingEngine.stripRects(
+            widthCM: 610, lengthCM: 480, pileDirection: .left, rollWidthCM: 400
+        )
+        XCTAssertEqual(strips.count, rects.count)
+        // Pile left → strips along Width: piece width is the rect's height chunk,
+        // piece length is the full room width.
+        XCTAssertEqual(strips.map(\.widthCM), rects.map(\.heightCM))
+        XCTAssertTrue(strips.allSatisfy { $0.lengthCM == 610 })
     }
 
     // MARK: - Internal strip-generation tests

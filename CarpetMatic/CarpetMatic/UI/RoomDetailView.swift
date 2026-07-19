@@ -67,8 +67,10 @@ struct RoomDetailView: View {
         .navigationTitle(room.name.isEmpty ? "Room" : room.name)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            widthText = DimensionFormat.metres(fromCM: room.widthCM)
-            lengthText = DimensionFormat.metres(fromCM: room.lengthCM)
+            seedDimensionFields()
+        }
+        .onChange(of: room.id) {
+            seedDimensionFields()
         }
         .onChange(of: widthText) { _, new in
             if let cm = DimensionFormat.parseMetresToCM(new), cm > 0 {
@@ -97,16 +99,18 @@ struct RoomDetailView: View {
         }
     }
 
+    private func seedDimensionFields() {
+        widthText = DimensionFormat.metres(fromCM: room.widthCM)
+        lengthText = DimensionFormat.metres(fromCM: room.lengthCM)
+    }
+
     private var stripsPreviewText: String? {
         guard room.widthCM > 0, room.lengthCM > 0, rollWidthMetres > 0 else { return nil }
-        let rollWidthCM = rollWidthMetres * 100
-        let stripsAlongLength = room.pileDirection.stripsAlongLength
-        let stripWidth = stripsAlongLength ? room.widthCM : room.lengthCM
-        let stripLength = stripsAlongLength ? room.lengthCM : room.widthCM
-        let count = (stripWidth + rollWidthCM - 1) / rollWidthCM
-        let totalCM = count * stripLength
-        let s = count == 1 ? "strip" : "strips"
-        return "\(count) \(s) · \(DimensionFormat.metres(fromCM: totalCM)) m of carpet for this room"
+        let strips = PackingEngine.strips(for: room.toEngine(), rollWidthCM: rollWidthMetres * 100)
+        guard !strips.isEmpty else { return nil }
+        let totalCM = strips.map(\.lengthCM).reduce(0, +)
+        let s = strips.count == 1 ? "strip" : "strips"
+        return "\(strips.count) \(s) · \(DimensionFormat.metres(fromCM: totalCM)) m of carpet for this room"
     }
 
     private var isOptimal: Bool {

@@ -97,6 +97,23 @@ internal func ceilDiv(_ a: Int, _ b: Int) -> Int {
     return (a + b - 1) / b
 }
 
+/// A strip's rectangle in room-relative coordinates: x runs across the room's
+/// Width axis, y along its Length axis. Produced by `PackingEngine.stripRects`;
+/// roll-relative positions live in `StripPlacement` instead.
+public struct StripRect: Hashable, Sendable {
+    public let xCM: Int
+    public let yCM: Int
+    public let widthCM: Int
+    public let heightCM: Int
+
+    public init(xCM: Int, yCM: Int, widthCM: Int, heightCM: Int) {
+        self.xCM = xCM
+        self.yCM = yCM
+        self.widthCM = widthCM
+        self.heightCM = heightCM
+    }
+}
+
 /// A rectangle the packer places on the roll. With the room-input model this is
 /// always a strip the engine generated from a Room — not a user input.
 public struct Piece: Identifiable, Hashable, Sendable {

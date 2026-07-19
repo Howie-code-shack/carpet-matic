@@ -33,17 +33,22 @@ struct RoomLayoutView: View {
             let roomL = CGFloat(lengthCM) * scale
             let originX = (size.width - roomW) / 2
             let originY = (size.height - roomL) / 2
-            let strips = computeStripRects()
+            let strips = PackingEngine.stripRects(
+                widthCM: widthCM,
+                lengthCM: lengthCM,
+                pileDirection: pileDirection,
+                rollWidthCM: rollWidthCM
+            )
 
             ZStack(alignment: .topLeading) {
                 ForEach(Array(strips.enumerated()), id: \.offset) { idx, strip in
                     let stripFrame = CGRect(
-                        x: originX + CGFloat(strip.x) * scale,
-                        y: originY + CGFloat(strip.y) * scale,
-                        width: CGFloat(strip.width) * scale,
-                        height: CGFloat(strip.height) * scale
+                        x: originX + CGFloat(strip.xCM) * scale,
+                        y: originY + CGFloat(strip.yCM) * scale,
+                        width: CGFloat(strip.widthCM) * scale,
+                        height: CGFloat(strip.heightCM) * scale
                     )
-                    stripView(index: idx, frame: stripFrame)
+                    stripView(index: idx, of: strips.count, frame: stripFrame)
                 }
 
                 Rectangle()
@@ -55,7 +60,7 @@ struct RoomLayoutView: View {
         }
     }
 
-    private func stripView(index: Int, frame: CGRect) -> some View {
+    private func stripView(index: Int, of count: Int, frame: CGRect) -> some View {
         let fill = index.isMultiple(of: 2) ? Color.accentColor.opacity(0.18) : Color.accentColor.opacity(0.32)
         return ZStack {
             Rectangle()
@@ -68,7 +73,7 @@ struct RoomLayoutView: View {
         .contentShape(Rectangle())
         .onTapGesture { onTapStrip() }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Strip \(index + 1) of \(stripCount), pile \(pileDirection.rawValue). Tap to rotate pile direction.")
+        .accessibilityLabel("Strip \(index + 1) of \(count), pile \(pileDirection.rawValue). Tap to rotate pile direction.")
         .accessibilityAddTraits(.isButton)
     }
 
@@ -101,38 +106,6 @@ struct RoomLayoutView: View {
         return min(usableW / CGFloat(widthCM), usableH / CGFloat(lengthCM))
     }
 
-    private func computeStripRects() -> [StripRect] {
-        var rects: [StripRect] = []
-        let stripsAlongLength = pileDirection.stripsAlongLength
-
-        if stripsAlongLength {
-            var x = 0
-            var remaining = widthCM
-            while remaining > 0 {
-                let w = min(remaining, rollWidthCM)
-                rects.append(StripRect(x: x, y: 0, width: w, height: lengthCM))
-                x += w
-                remaining -= w
-            }
-        } else {
-            var y = 0
-            var remaining = lengthCM
-            while remaining > 0 {
-                let h = min(remaining, rollWidthCM)
-                rects.append(StripRect(x: 0, y: y, width: widthCM, height: h))
-                y += h
-                remaining -= h
-            }
-        }
-        return rects
-    }
-
-    private var stripCount: Int {
-        let stripsAlongLength = pileDirection.stripsAlongLength
-        let perp = stripsAlongLength ? widthCM : lengthCM
-        return (perp + rollWidthCM - 1) / rollWidthCM
-    }
-
     private func rotation(for direction: PileDirection) -> Angle {
         switch direction {
         case .up:    return .degrees(0)
@@ -141,11 +114,4 @@ struct RoomLayoutView: View {
         case .left:  return .degrees(270)
         }
     }
-}
-
-private struct StripRect {
-    let x: Int
-    let y: Int
-    let width: Int
-    let height: Int
 }

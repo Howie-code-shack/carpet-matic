@@ -9,6 +9,7 @@ struct ResultView: View {
     @State private var errorMessage: String?
     @State private var exportDocument: PDFExportDocument?
     @State private var showingExporter = false
+    @State private var exportErrorMessage: String?
 
     var body: some View {
         Form {
@@ -70,7 +71,7 @@ struct ResultView: View {
         }
         .navigationTitle("Result")
         .navigationBarTitleDisplayMode(.inline)
-        .task(id: project.id) {
+        .task(id: calculationFingerprint) {
             recalculate()
         }
         .fileExporter(
@@ -78,7 +79,40 @@ struct ResultView: View {
             document: exportDocument,
             contentType: .pdf,
             defaultFilename: defaultFilename
-        ) { _ in }
+        ) { outcome in
+            if case .failure(let error) = outcome {
+                exportErrorMessage = error.localizedDescription
+            }
+        }
+        .alert(
+            "Export failed",
+            isPresented: Binding(
+                get: { exportErrorMessage != nil },
+                set: { if !$0 { exportErrorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(exportErrorMessage ?? "")
+        }
+    }
+
+    /// Changes whenever any input to the calculation changes, so `.task(id:)`
+    /// recomputes while the view stays on screen (e.g. edits synced from
+    /// another device).
+    private var calculationFingerprint: Int {
+        var hasher = Hasher()
+        hasher.combine(project.rollWidthMetres)
+        let rooms = (project.rooms ?? []).sorted { $0.id.uuidString < $1.id.uuidString }
+        for room in rooms {
+            hasher.combine(room.id)
+            hasher.combine(room.name)
+            hasher.combine(room.widthCM)
+            hasher.combine(room.lengthCM)
+            hasher.combine(room.kindRaw)
+            hasher.combine(room.pileDirectionRaw)
+        }
+        return hasher.finalize()
     }
 
     private var defaultFilename: String {

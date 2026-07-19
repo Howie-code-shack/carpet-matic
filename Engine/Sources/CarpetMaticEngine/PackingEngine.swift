@@ -83,24 +83,53 @@ public enum PackingEngine {
     ///  * up/down → strips run along Length (each strip is some-width × Length).
     ///  * left/right → strips run along Width (each strip is some-width × Width).
     /// First n−1 strips are roll-width wide; the last is the remainder.
-    /// Internal so tests can target it directly.
-    static func strips(for room: Room, rollWidthCM: Int) -> [Piece] {
-        let stripsAlongLength = room.pileDirection.stripsAlongLength
-        let perpDimensionCM = stripsAlongLength ? room.widthCM : room.lengthCM
-        let stripLengthCM   = stripsAlongLength ? room.lengthCM : room.widthCM
-
-        var strips: [Piece] = []
-        var remaining = perpDimensionCM
-        while remaining > 0 {
-            let stripWidth = min(remaining, rollWidthCM)
-            strips.append(Piece(
-                widthCM: stripWidth,
-                lengthCM: stripLengthCM,
+    public static func strips(for room: Room, rollWidthCM: Int) -> [Piece] {
+        let alongLength = room.pileDirection.stripsAlongLength
+        return stripRects(
+            widthCM: room.widthCM,
+            lengthCM: room.lengthCM,
+            pileDirection: room.pileDirection,
+            rollWidthCM: rollWidthCM
+        ).map { rect in
+            Piece(
+                widthCM: alongLength ? rect.widthCM : rect.heightCM,
+                lengthCM: alongLength ? rect.heightCM : rect.widthCM,
                 pileDirection: room.pileDirection
-            ))
-            remaining -= stripWidth
+            )
         }
-        return strips
+    }
+
+    /// How a room splits into strips, in room-relative coordinates
+    /// (x across the Width axis, y along the Length axis). This is the single
+    /// source of truth for the split rule; `strips(for:rollWidthCM:)` and the
+    /// UI's room-layout preview both derive from it.
+    /// Returns `[]` for non-positive room dimensions.
+    public static func stripRects(
+        widthCM: Int,
+        lengthCM: Int,
+        pileDirection: PileDirection,
+        rollWidthCM: Int
+    ) -> [StripRect] {
+        precondition(rollWidthCM > 0, "rollWidthCM must be positive")
+        guard widthCM > 0, lengthCM > 0 else { return [] }
+
+        var rects: [StripRect] = []
+        if pileDirection.stripsAlongLength {
+            var x = 0
+            while x < widthCM {
+                let w = min(widthCM - x, rollWidthCM)
+                rects.append(StripRect(xCM: x, yCM: 0, widthCM: w, heightCM: lengthCM))
+                x += w
+            }
+        } else {
+            var y = 0
+            while y < lengthCM {
+                let h = min(lengthCM - y, rollWidthCM)
+                rects.append(StripRect(xCM: 0, yCM: y, widthCM: widthCM, heightCM: h))
+                y += h
+            }
+        }
+        return rects
     }
 
     private struct StripWithContext {

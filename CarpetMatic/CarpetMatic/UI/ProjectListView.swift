@@ -8,6 +8,7 @@ struct ProjectListView: View {
     private var projects: [ProjectModel]
 
     @State private var showingNewProjectSheet = false
+    @State private var pendingDeletion: IndexSet?
 
     var body: some View {
         NavigationStack {
@@ -27,9 +28,31 @@ struct ProjectListView: View {
                                 ProjectRow(project: project)
                             }
                         }
-                        .onDelete(perform: deleteProjects)
+                        .onDelete { offsets in
+                            pendingDeletion = offsets
+                        }
                     }
                 }
+            }
+            .confirmationDialog(
+                deletionTitle,
+                isPresented: Binding(
+                    get: { pendingDeletion != nil },
+                    set: { if !$0 { pendingDeletion = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Delete", role: .destructive) {
+                    if let pendingDeletion {
+                        deleteProjects(at: pendingDeletion)
+                    }
+                    pendingDeletion = nil
+                }
+                Button("Cancel", role: .cancel) {
+                    pendingDeletion = nil
+                }
+            } message: {
+                Text("This also deletes all of its rooms. You can't undo this.")
             }
             .navigationTitle("Projects")
             .toolbar {
@@ -50,8 +73,17 @@ struct ProjectListView: View {
         }
     }
 
+    private var deletionTitle: String {
+        guard let pendingDeletion else { return "Delete project?" }
+        if pendingDeletion.count == 1, let idx = pendingDeletion.first, idx < projects.count {
+            let name = projects[idx].name
+            return "Delete “\(name.isEmpty ? "Untitled" : name)”?"
+        }
+        return "Delete \(pendingDeletion.count) projects?"
+    }
+
     private func deleteProjects(at offsets: IndexSet) {
-        for idx in offsets {
+        for idx in offsets where idx < projects.count {
             modelContext.delete(projects[idx])
         }
     }

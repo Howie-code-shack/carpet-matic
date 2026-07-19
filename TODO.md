@@ -14,6 +14,7 @@ The engine + Xcode app skeleton are in place; the input model is **room dimensio
 - [x] Unit tests (21 cases): empty project, single rooms (narrow / exact / oversize / very-wide), pile axis selection, cross-room nesting, the 5.3 m user scenario, stairs propagation, room-order preservation, optimal-pile-direction helper, errors.
 - [x] Xcode iOS app project linked to the Engine package; SwiftData `@Model` classes (`ProjectModel`, `RoomModel`); local-only persistence.
 - [x] SwiftUI screens: `ProjectListView`, `ProjectDetailView`, `RoomDetailView` (single form: name + dimensions + pile), `ResultView` with strip breakdown, `PileArrowView`, `PDFExporter`.
+- [x] Release-blocker fixes (2026-07-19): PDF export paginates across A4 pages (was single-page, silently truncating); export failures surfaced via alert; `PackingEngine.stripRects` is the single public source of the strip-split rule (UI previews consume it instead of re-deriving); placement-geometry engine tests (no overlaps, strips within roll); `RoomDetailView` reseeds its dimension fields if the bound room changes.
 
 ## Phase 0 — Foundation
 
@@ -53,7 +54,7 @@ Goal: every functional requirement in `REQUIREMENTS.md` works end-to-end.
 
 - [x] `PileArrowView`: small reusable arrow icon, takes a `PileDirection`.
 - [x] `ResultView`: total linear metres at the top; per-room breakdown with each strip's dimensions and pile arrow.
-- [ ] Result recomputes automatically on data change.
+- [x] Result recomputes automatically on data change (`ResultView` recalculates via a fingerprint of roll width + room data).
 - [x] `PDFExporter`: render the result to PDF (one room per section, strips listed with pile direction).
 - [x] `fileExporter` integration for share/save.
 
@@ -72,8 +73,9 @@ Goal: every functional requirement in `REQUIREMENTS.md` works end-to-end.
 - [ ] Receive the rotate-button reference screenshot from the user; match the visual design.
 - [ ] Empty/edge-case states: empty project, empty room, single-piece project, oversize piece warning, near-zero dimensions.
 - [ ] Accessibility: VoiceOver labels on every interactive element; Dynamic Type support; keyboard navigation on Mac.
-- [ ] App icon and launch screen.
-- [ ] Delete confirmations; per-piece rotation undo.
+- [x] App icon (carpet-roll motif; light/dark/tinted 1024px variants in `AppIcon.appiconset`). Launch screen still the auto-generated blank one.
+- [x] Delete confirmations for projects and rooms (confirmation dialog before cascade delete).
+- [ ] Per-piece rotation undo.
 
 ## Future backlog (not MVP)
 

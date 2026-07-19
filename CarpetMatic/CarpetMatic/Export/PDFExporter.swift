@@ -9,69 +9,90 @@ enum PDFExporter {
         result: PackingResult
     ) -> Data {
         let pageRect = CGRect(x: 0, y: 0, width: 595, height: 842)  // A4 at 72 dpi
+        let margin: CGFloat = 48
+        let contentWidth = pageRect.width - margin * 2
+        let maxY = pageRect.height - margin
         let renderer = UIGraphicsPDFRenderer(bounds: pageRect)
 
         return renderer.pdfData { context in
             context.beginPage()
-            var cursorY: CGFloat = 48
-            let leftMargin: CGFloat = 48
-            let rightMargin: CGFloat = pageRect.width - 48
+            var cursorY: CGFloat = margin
 
-            cursorY = drawText(
+            func breakPageIfNeeded(spaceNeeded: CGFloat) {
+                if cursorY + spaceNeeded > maxY {
+                    context.beginPage()
+                    cursorY = margin
+                }
+            }
+
+            func draw(_ text: String, font: UIFont) {
+                breakPageIfNeeded(spaceNeeded: textHeight(text, width: contentWidth, font: font))
+                cursorY = drawText(
+                    text,
+                    at: CGPoint(x: margin, y: cursorY),
+                    width: contentWidth,
+                    font: font
+                )
+            }
+
+            draw(
                 projectName.isEmpty ? "Untitled project" : projectName,
-                at: CGPoint(x: leftMargin, y: cursorY),
-                width: rightMargin - leftMargin,
                 font: .boldSystemFont(ofSize: 24)
             )
             cursorY += 12
 
-            cursorY = drawText(
-                "Roll width: \(rollWidthMetres) m",
-                at: CGPoint(x: leftMargin, y: cursorY),
-                width: rightMargin - leftMargin,
-                font: .systemFont(ofSize: 14)
-            )
+            draw("Roll width: \(rollWidthMetres) m", font: .systemFont(ofSize: 14))
             cursorY += 4
 
-            let totalString = String(format: "Total carpet: %.2f m", result.totalLengthMetres)
-            cursorY = drawText(
-                totalString,
-                at: CGPoint(x: leftMargin, y: cursorY),
-                width: rightMargin - leftMargin,
+            draw(
+                String(format: "Total carpet: %.2f m", result.totalLengthMetres),
                 font: .boldSystemFont(ofSize: 16)
             )
             cursorY += 16
+
+            let headerFont = UIFont.boldSystemFont(ofSize: 14)
+            let stripFont = UIFont.monospacedSystemFont(ofSize: 12, weight: .regular)
 
             for breakdown in result.perRoom {
                 let header = breakdown.kind == .stairs
                     ? "\(breakdown.roomName) — stairs (\(breakdown.strips.count) strip\(breakdown.strips.count == 1 ? "" : "s"))"
                     : "\(breakdown.roomName) (\(breakdown.strips.count) strip\(breakdown.strips.count == 1 ? "" : "s"))"
-                cursorY = drawText(
-                    header,
-                    at: CGPoint(x: leftMargin, y: cursorY),
-                    width: rightMargin - leftMargin,
-                    font: .boldSystemFont(ofSize: 14)
-                )
+
+                // Keep the room header together with at least its first strip line.
+                var headerSpace = textHeight(header, width: contentWidth, font: headerFont) + 2
+                if let firstStrip = breakdown.strips.first {
+                    headerSpace += textHeight(stripLine(firstStrip), width: contentWidth, font: stripFont)
+                }
+                breakPageIfNeeded(spaceNeeded: headerSpace)
+
+                draw(header, font: headerFont)
                 cursorY += 2
 
                 for strip in breakdown.strips {
-                    let line = String(
-                        format: "    %.2f × %.2f m   pile: %@",
-                        Double(strip.widthCM) / 100.0,
-                        Double(strip.lengthCM) / 100.0,
-                        strip.pileDirection.rawValue
-                    )
-                    cursorY = drawText(
-                        line,
-                        at: CGPoint(x: leftMargin, y: cursorY),
-                        width: rightMargin - leftMargin,
-                        font: .monospacedSystemFont(ofSize: 12, weight: .regular)
-                    )
+                    draw(stripLine(strip), font: stripFont)
                 }
 
                 cursorY += 8
             }
         }
+    }
+
+    private static func stripLine(_ strip: StripPlacement) -> String {
+        String(
+            format: "    %.2f × %.2f m   pile: %@",
+            Double(strip.widthCM) / 100.0,
+            Double(strip.lengthCM) / 100.0,
+            strip.pileDirection.rawValue
+        )
+    }
+
+    private static func textHeight(_ text: String, width: CGFloat, font: UIFont) -> CGFloat {
+        let bounded = attributed(text, font: font).boundingRect(
+            with: CGSize(width: width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            context: nil
+        )
+        return ceil(bounded.height) + 4
     }
 
     @discardableResult
@@ -81,11 +102,7 @@ enum PDFExporter {
         width: CGFloat,
         font: UIFont
     ) -> CGFloat {
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .foregroundColor: UIColor.black,
-        ]
-        let attributed = NSAttributedString(string: text, attributes: attributes)
+        let attributed = attributed(text, font: font)
         let bounded = attributed.boundingRect(
             with: CGSize(width: width, height: .greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading],
@@ -96,5 +113,12 @@ enum PDFExporter {
                         options: [.usesLineFragmentOrigin, .usesFontLeading],
                         context: nil)
         return origin.y + ceil(bounded.height) + 4
+    }
+
+    private static func attributed(_ text: String, font: UIFont) -> NSAttributedString {
+        NSAttributedString(string: text, attributes: [
+            .font: font,
+            .foregroundColor: UIColor.black,
+        ])
     }
 }

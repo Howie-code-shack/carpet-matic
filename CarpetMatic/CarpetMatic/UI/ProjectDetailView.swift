@@ -7,6 +7,7 @@ struct ProjectDetailView: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var showingNewRoomSheet = false
+    @State private var pendingRoomDeletion: IndexSet?
 
     private var rooms: [RoomModel] {
         project.rooms ?? []
@@ -35,7 +36,9 @@ struct ProjectDetailView: View {
                             RoomRow(room: room)
                         }
                     }
-                    .onDelete(perform: deleteRooms)
+                    .onDelete { offsets in
+                        pendingRoomDeletion = offsets
+                    }
                 }
 
                 Button {
@@ -59,6 +62,24 @@ struct ProjectDetailView: View {
         }
         .navigationTitle(project.name.isEmpty ? "Project" : project.name)
         .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog(
+            roomDeletionTitle,
+            isPresented: Binding(
+                get: { pendingRoomDeletion != nil },
+                set: { if !$0 { pendingRoomDeletion = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let pendingRoomDeletion {
+                    deleteRooms(at: pendingRoomDeletion)
+                }
+                pendingRoomDeletion = nil
+            }
+            Button("Cancel", role: .cancel) {
+                pendingRoomDeletion = nil
+            }
+        }
         .sheet(isPresented: $showingNewRoomSheet) {
             NewRoomSheet(rollWidthMetres: project.rollWidthMetres) { name, widthCM, lengthCM, kind in
                 let pile = Room.optimalPileDirection(
@@ -79,8 +100,17 @@ struct ProjectDetailView: View {
         }
     }
 
+    private var roomDeletionTitle: String {
+        guard let pendingRoomDeletion else { return "Delete room?" }
+        if pendingRoomDeletion.count == 1, let idx = pendingRoomDeletion.first, idx < rooms.count {
+            let name = rooms[idx].name
+            return "Delete “\(name.isEmpty ? "Untitled" : name)”?"
+        }
+        return "Delete \(pendingRoomDeletion.count) rooms?"
+    }
+
     private func deleteRooms(at offsets: IndexSet) {
-        for idx in offsets {
+        for idx in offsets where idx < rooms.count {
             modelContext.delete(rooms[idx])
         }
     }
@@ -172,9 +202,8 @@ private struct NewRoomSheet: View {
     }
 
     private var isValid: Bool {
-        guard let w = DimensionFormat.parseMetresToCM(widthText), w > 0 else { return false }
-        guard let l = DimensionFormat.parseMetresToCM(lengthText), l > 0 else { return false }
-        let _ = w; let _ = l
+        guard let w = DimensionFormat.parseMetresToCM(widthText), w > 0,
+              let l = DimensionFormat.parseMetresToCM(lengthText), l > 0 else { return false }
         return !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
