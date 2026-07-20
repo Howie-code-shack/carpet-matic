@@ -1,5 +1,5 @@
 {
-  "identifier" : "8F4E2C1A-0B7D-4A9E-9C3F-CM0STOREKIT01",
+  "identifier" : "9373837C-454B-43AC-B4D8-2C684ADF4849",
   "nonRenewingSubscriptions" : [
 
   ],
@@ -7,7 +7,7 @@
     {
       "displayPrice" : "19.99",
       "familyShareable" : false,
-      "internalID" : "8F4E2C1A-0B7D-4A9E-9C3F-CM0PRODUCT001",
+      "internalID" : "89C5B121-083B-4C1E-A5F6-2A79DDC5D932",
       "localizations" : [
         {
           "description" : "Unlimited projects, PDF export and sharing.",
@@ -21,8 +21,12 @@
     }
   ],
   "settings" : {
+    "_failTransactionsEnabled" : false,
     "_locale" : "en_GB",
-    "_storefront" : "GBR"
+    "_storefront" : "GBR",
+    "_storeKitErrors" : [
+
+    ]
   },
   "subscriptionGroups" : [
 
