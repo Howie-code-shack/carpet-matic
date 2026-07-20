@@ -8,6 +8,7 @@ struct ProjectDetailView: View {
 
     @State private var showingNewRoomSheet = false
     @State private var pendingRoomDeletion: IndexSet?
+    @State private var priceText: String = ""
 
     private var rooms: [RoomModel] {
         project.rooms ?? []
@@ -21,6 +22,12 @@ struct ProjectDetailView: View {
                     ForEach(CarpetMaticEngine.Project.allowedRollWidthsMetres, id: \.self) { m in
                         Text("\(m) m").tag(m)
                     }
+                }
+                HStack {
+                    Text("Price per metre (\(MoneyFormat.currencySymbol))")
+                    TextField("optional", text: $priceText)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
                 }
             }
 
@@ -62,6 +69,19 @@ struct ProjectDetailView: View {
         }
         .navigationTitle(project.name.isEmpty ? "Project" : project.name)
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            seedPriceField()
+        }
+        .onChange(of: project.id) {
+            seedPriceField()
+        }
+        .onChange(of: priceText) { _, new in
+            if new.trimmingCharacters(in: .whitespaces).isEmpty {
+                project.pricePerMetrePence = 0
+            } else if let pence = MoneyFormat.parsePoundsToPence(new) {
+                project.pricePerMetrePence = pence
+            }
+        }
         .confirmationDialog(
             roomDeletionTitle,
             isPresented: Binding(
@@ -98,6 +118,12 @@ struct ProjectDetailView: View {
                 modelContext.insert(room)
             }
         }
+    }
+
+    private func seedPriceField() {
+        priceText = project.pricePerMetrePence > 0
+            ? MoneyFormat.pounds(fromPence: project.pricePerMetrePence)
+            : ""
     }
 
     private var roomDeletionTitle: String {

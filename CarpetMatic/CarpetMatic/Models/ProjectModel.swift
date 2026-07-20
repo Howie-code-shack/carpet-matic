@@ -7,6 +7,9 @@ final class ProjectModel {
     var name: String = ""
     var rollWidthMetres: Int = 4
     var createdAt: Date = Date()
+    /// Price per linear metre in pence (integer, like cm for dimensions —
+    /// avoids float drift across CloudKit). 0 = not set; estimate hidden.
+    var pricePerMetrePence: Int = 0
 
     @Relationship(deleteRule: .cascade, inverse: \RoomModel.project)
     var rooms: [RoomModel]? = []

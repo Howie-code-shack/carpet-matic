@@ -39,6 +39,15 @@ struct ResultView: View {
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                     }
+                    if project.pricePerMetrePence > 0 {
+                        HStack {
+                            Text("Estimate")
+                            Spacer()
+                            Text(MoneyFormat.display(pence: estimatePence(for: result)))
+                                .bold()
+                                .monospacedDigit()
+                        }
+                    }
                 }
 
                 Section {
@@ -138,6 +147,11 @@ struct ResultView: View {
         project.rollWidthMetres * 100
     }
 
+    /// price/m (pence) × length (cm) ÷ 100, rounded to the nearest penny.
+    private func estimatePence(for result: PackingResult) -> Int {
+        (project.pricePerMetrePence * result.totalLengthCM + 50) / 100
+    }
+
     private var defaultFilename: String {
         let trimmed = project.name.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "Project" : trimmed
@@ -162,7 +176,8 @@ struct ResultView: View {
         let data = PDFExporter.makePDF(
             projectName: project.name,
             rollWidthMetres: project.rollWidthMetres,
-            result: result
+            result: result,
+            pricePerMetrePence: project.pricePerMetrePence
         )
         exportDocument = PDFExportDocument(data: data)
         showingExporter = true

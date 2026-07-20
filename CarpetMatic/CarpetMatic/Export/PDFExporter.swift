@@ -6,7 +6,8 @@ enum PDFExporter {
     static func makePDF(
         projectName: String,
         rollWidthMetres: Int,
-        result: PackingResult
+        result: PackingResult,
+        pricePerMetrePence: Int = 0
     ) -> Data {
         let pageRect = CGRect(x: 0, y: 0, width: 595, height: 842)  // A4 at 72 dpi
         let margin: CGFloat = 48
@@ -59,6 +60,16 @@ enum PDFExporter {
                 ),
                 font: .systemFont(ofSize: 13)
             )
+
+            if pricePerMetrePence > 0 {
+                cursorY += 2
+                let estimatePence = (pricePerMetrePence * result.totalLengthCM + 50) / 100
+                draw(
+                    "Estimate: \(MoneyFormat.display(pence: estimatePence))"
+                        + "  (\(MoneyFormat.display(pence: pricePerMetrePence))/m)",
+                    font: .boldSystemFont(ofSize: 14)
+                )
+            }
             cursorY += 16
 
             let headerFont = UIFont.boldSystemFont(ofSize: 14)
