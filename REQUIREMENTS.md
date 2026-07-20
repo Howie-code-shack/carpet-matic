@@ -63,7 +63,7 @@ Apple-platform (iPhone + Mac) app for carpet fitters. The user enters **room dim
 
 ## Open items
 
-- The visual design of the **pile-direction picker / rotate UI** is TBD pending a reference screenshot from the user's existing software.
+- ~~The visual design of the pile-direction picker / rotate UI~~ — **closed 2026-07-20**: the user accepted the current design (segmented ↑ → ↓ ← picker + tap-any-strip-to-rotate in the room layout). No reference screenshot needed.
 
 ## Future backlog
 

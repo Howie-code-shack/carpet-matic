@@ -71,7 +71,7 @@ Things that took multiple rounds of user clarification — easy to get wrong if 
 
 ## Open items (don't ship without resolving)
 
-- The visual design of the **rotate button** is TBD pending a reference screenshot from the user's existing software. Phase 2 picks this up — don't lock the visual in Phase 1.
+- None. (The rotate-button visual was closed 2026-07-20: user accepted the current segmented-picker + tap-strip-to-rotate design; the once-planned reference screenshot is no longer needed.)
 
 ## Memory
 

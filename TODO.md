@@ -74,7 +74,7 @@ Goal: every functional requirement in `REQUIREMENTS.md` works end-to-end.
 
 ## Phase 2 — Polish
 
-- [ ] Receive the rotate-button reference screenshot from the user; match the visual design.
+- [x] Rotate-button visual: user accepted the current design (2026-07-20) — segmented pile picker + tap-strip-to-rotate. Reference screenshot no longer needed.
 - [x] Edge-case errors name the offending room ("'Hall' is missing its dimensions"); Calculate disabled for empty projects; parse rejects non-positive dims at input.
 - [x] Accessibility: VoiceOver labels on dimension/price fields, pile-picker segments, result strip rows (single combined elements), roll-layout strips, pile arrows. Dynamic Type via system fonts throughout (fixed sizes only inside the geometric roll drawing).
 - [x] String Catalog created (`Localizable.xcstrings`, auto-populated at build); `PrivacyInfo.xcprivacy` added (no tracking, no data collection); date on PDF header.
