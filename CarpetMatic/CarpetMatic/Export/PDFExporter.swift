@@ -3,11 +3,29 @@ import UIKit
 import CarpetMaticEngine
 
 enum PDFExporter {
+    struct Branding {
+        let businessName: String
+        let phone: String
+        let email: String
+
+        var contactLine: String {
+            [phone, email]
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+                .joined(separator: "  ·  ")
+        }
+
+        var isEmpty: Bool {
+            businessName.trimmingCharacters(in: .whitespaces).isEmpty && contactLine.isEmpty
+        }
+    }
+
     static func makePDF(
         projectName: String,
         rollWidthMetres: Int,
         result: PackingResult,
-        pricePerMetrePence: Int = 0
+        pricePerMetrePence: Int = 0,
+        branding: Branding? = nil
     ) -> Data {
         let pageRect = CGRect(x: 0, y: 0, width: 595, height: 842)  // A4 at 72 dpi
         let margin: CGFloat = 48
@@ -34,6 +52,17 @@ enum PDFExporter {
                     width: contentWidth,
                     font: font
                 )
+            }
+
+            if let branding, !branding.isEmpty {
+                let name = branding.businessName.trimmingCharacters(in: .whitespaces)
+                if !name.isEmpty {
+                    draw(name, font: .boldSystemFont(ofSize: 15))
+                }
+                if !branding.contactLine.isEmpty {
+                    draw(branding.contactLine, font: .systemFont(ofSize: 11))
+                }
+                cursorY += 14
             }
 
             draw(

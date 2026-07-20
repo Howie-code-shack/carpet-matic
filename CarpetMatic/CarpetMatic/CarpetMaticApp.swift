@@ -6,7 +6,7 @@ struct CarpetMaticApp: App {
     let modelContainer: ModelContainer
 
     init() {
-        let schema = Schema([ProjectModel.self, RoomModel.self])
+        let schema = Schema([ProjectModel.self, RoomModel.self, BusinessProfileModel.self])
         let configuration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false,

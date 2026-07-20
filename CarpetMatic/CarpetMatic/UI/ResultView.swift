@@ -1,9 +1,13 @@
 import SwiftUI
+import SwiftData
 import UniformTypeIdentifiers
 import CarpetMaticEngine
 
 struct ResultView: View {
     let project: ProjectModel
+
+    @Query(sort: \BusinessProfileModel.createdAt)
+    private var businessProfiles: [BusinessProfileModel]
 
     @State private var result: PackingResult?
     @State private var errorMessage: String?
@@ -173,11 +177,15 @@ struct ResultView: View {
 
     private func prepareExport() {
         guard let result else { return }
+        let branding = businessProfiles.first.map {
+            PDFExporter.Branding(businessName: $0.businessName, phone: $0.phone, email: $0.email)
+        }
         let data = PDFExporter.makePDF(
             projectName: project.name,
             rollWidthMetres: project.rollWidthMetres,
             result: result,
-            pricePerMetrePence: project.pricePerMetrePence
+            pricePerMetrePence: project.pricePerMetrePence,
+            branding: branding
         )
         exportDocument = PDFExportDocument(data: data)
         showingExporter = true

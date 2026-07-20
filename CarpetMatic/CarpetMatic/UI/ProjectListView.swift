@@ -8,6 +8,7 @@ struct ProjectListView: View {
     private var projects: [ProjectModel]
 
     @State private var showingNewProjectSheet = false
+    @State private var showingSettings = false
     @State private var pendingDeletion: IndexSet?
 
     var body: some View {
@@ -56,6 +57,13 @@ struct ProjectListView: View {
             }
             .navigationTitle("Projects")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showingSettings = true
+                    } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         showingNewProjectSheet = true
@@ -63,6 +71,9 @@ struct ProjectListView: View {
                         Label("New Project", systemImage: "plus")
                     }
                 }
+            }
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
             }
             .sheet(isPresented: $showingNewProjectSheet) {
                 NewProjectSheet { name, rollWidth in
