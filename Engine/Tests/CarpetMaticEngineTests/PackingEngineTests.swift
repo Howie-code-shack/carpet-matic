@@ -364,6 +364,49 @@ final class PackingEngineTests: XCTestCase {
         XCTAssertEqual(r.totalLengthMetres, 8.75, accuracy: 0.0001)
     }
 
+    // MARK: - Area / waste / efficiency
+
+    func testUsedAreaSumsStripAreas() throws {
+        // 3m × 5m room, pile up → one 300×500 strip. Used area = 150000 cm² = 15 m².
+        let room = Room(name: "Lounge", widthCM: 300, lengthCM: 500, pileDirection: .up)
+        let project = Project(name: "P", rollWidthMetres: 4, rooms: [room])
+        let result = try PackingEngine.pack(project)
+        XCTAssertEqual(result.usedAreaCM2, 150_000)
+    }
+
+    func testWasteAndEfficiencyForSingleNarrowRoom() throws {
+        // 3m wide × 5m long room on a 4m roll, pile up.
+        // Roll consumed: 400 × 500 = 200000 cm². Used: 300 × 500 = 150000.
+        // Waste = 50000 cm² = 5 m². Efficiency = 0.75, waste = 0.25.
+        let room = Room(name: "Lounge", widthCM: 300, lengthCM: 500, pileDirection: .up)
+        let project = Project(name: "P", rollWidthMetres: 4, rooms: [room])
+        let result = try PackingEngine.pack(project)
+        let rollWidthCM = 400
+        XCTAssertEqual(result.rollAreaCM2(rollWidthCM: rollWidthCM), 200_000)
+        XCTAssertEqual(result.wasteAreaCM2(rollWidthCM: rollWidthCM), 50_000)
+        XCTAssertEqual(result.wasteAreaMetresSquared(rollWidthCM: rollWidthCM), 5.0, accuracy: 0.0001)
+        XCTAssertEqual(result.efficiencyFraction(rollWidthCM: rollWidthCM), 0.75, accuracy: 0.0001)
+        XCTAssertEqual(result.wasteFraction(rollWidthCM: rollWidthCM), 0.25, accuracy: 0.0001)
+    }
+
+    func testExactFitRoomHasZeroWaste() throws {
+        // 4m wide × 6m long room on a 4m roll → fills the roll exactly, no offcut.
+        let room = Room(name: "R", widthCM: 400, lengthCM: 600, pileDirection: .up)
+        let project = Project(name: "P", rollWidthMetres: 4, rooms: [room])
+        let result = try PackingEngine.pack(project)
+        XCTAssertEqual(result.wasteAreaCM2(rollWidthCM: 400), 0)
+        XCTAssertEqual(result.efficiencyFraction(rollWidthCM: 400), 1.0, accuracy: 0.0001)
+    }
+
+    func testEmptyProjectHasZeroEfficiencyNotNaN() throws {
+        let project = Project(name: "Empty", rollWidthMetres: 4)
+        let result = try PackingEngine.pack(project)
+        XCTAssertEqual(result.usedAreaCM2, 0)
+        XCTAssertEqual(result.wasteAreaCM2(rollWidthCM: 400), 0)
+        XCTAssertEqual(result.efficiencyFraction(rollWidthCM: 400), 0)
+        XCTAssertEqual(result.wasteFraction(rollWidthCM: 400), 0)
+    }
+
     // MARK: - Pile rotation utility (kept from earlier)
 
     func testPileRotationCycleIsConsistent() {

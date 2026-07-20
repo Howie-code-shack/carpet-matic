@@ -14,6 +14,7 @@ The engine + Xcode app skeleton are in place; the input model is **room dimensio
 - [x] Unit tests (21 cases): empty project, single rooms (narrow / exact / oversize / very-wide), pile axis selection, cross-room nesting, the 5.3 m user scenario, stairs propagation, room-order preservation, optimal-pile-direction helper, errors.
 - [x] Xcode iOS app project linked to the Engine package; SwiftData `@Model` classes (`ProjectModel`, `RoomModel`); local-only persistence.
 - [x] SwiftUI screens: `ProjectListView`, `ProjectDetailView`, `RoomDetailView` (single form: name + dimensions + pile), `ResultView` with strip breakdown, `PileArrowView`, `PDFExporter`.
+- [x] Phase B — graphical roll layout (2026-07-20): `RollLayoutView` renders the whole roll from `PackingResult.placements` (colour per room, pile arrows, dimensions, offcut summary bar), linked from `ResultView`. Engine gained `usedAreaCM2` / `wasteArea…` / `efficiencyFraction` / `wasteFraction` helpers (4 new tests, 33 total); offcut line added to `ResultView` and the PDF.
 - [x] Release-blocker fixes (2026-07-19): PDF export paginates across A4 pages (was single-page, silently truncating); export failures surfaced via alert; `PackingEngine.stripRects` is the single public source of the strip-split rule (UI previews consume it instead of re-deriving); placement-geometry engine tests (no overlaps, strips within roll); `RoomDetailView` reseeds its dimension fields if the bound room changes.
 
 ## Phase 0 — Foundation
@@ -27,7 +28,7 @@ Goal: a buildable, signed, syncing skeleton on both devices.
 - [x] Add the iCloud entitlement; enable CloudKit; select the container (`CarpetMatic/CarpetMatic.entitlements`).
 - [x] Add SwiftData `@Model` types: `ProjectModel`, `RoomModel`; enums `RoomKind`, `PileDirection`.
 - [x] Configure `ModelContainer` with `.private(...)` CloudKit database in `CarpetMaticApp.swift`.
-- [ ] Verify the schema deploys to the CloudKit dashboard (development environment) — happens on first run signed into iCloud.
+- [x] Verify the schema deploys to the CloudKit dashboard (development environment) — confirmed by working iPhone↔Mac sync 2026-07-20.
 - [x] Stub a placeholder `NavigationStack` (iPhone) / `NavigationSplitView` (Mac) skeleton.
 - [x] Smoke-test: builds, signs, and installs on the user's iPhone (Howie iPhone Air).
 
@@ -60,8 +61,8 @@ Goal: every functional requirement in `REQUIREMENTS.md` works end-to-end.
 
 ### Sync verification
 
-- [ ] Create a project on iPhone; confirm it appears on Mac within a minute.
-- [ ] Edit on Mac; confirm changes flow back to iPhone.
+- [x] Create a project on iPhone; confirm it appears on Mac within a minute. (verified 2026-07-20)
+- [x] Edit on Mac; confirm changes flow back to iPhone. (verified 2026-07-20)
 - [ ] Test offline behaviour: airplane-mode iPhone, edit, reconnect, sync resolves.
 
 ### Manual QA

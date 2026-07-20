@@ -57,7 +57,7 @@ Apple-platform (iPhone + Mac) app for carpet fitters. The user enters **room dim
 - Multi-rectangle rooms (a Room is a single rectangle in MVP).
 - Software-managed waste / safety percentage (the user pre-pads at input).
 - Per-roll-length output view (only a per-room breakdown in MVP).
-- Full graphical layout view of cut strips on the roll. Pile arrows live next to each strip line in the per-room breakdown.
+- ~~Full graphical layout view of cut strips on the roll.~~ **Added post-MVP (2026-07-20):** `RollLayoutView` draws the whole roll with every strip placed, coloured per room, with pile arrows and dimensions, plus an offcut % summary. Pile arrows also live next to each strip line in the per-room breakdown.
 - Cost estimation (price per linear metre × total).
 - Pages (`.pages`) export, RTF, or DOCX. PDF only.
 
@@ -67,4 +67,6 @@ Apple-platform (iPhone + Mac) app for carpet fitters. The user enters **room dim
 
 ## Future backlog
 
-L-shape and other shapes; multi-rectangle rooms; waste % field; full graphical layout view; per-roll-length output view; cost estimation; RTF/DOCX/Pages export; TestFlight distribution; a more sophisticated packing algorithm; a real stair calculator (steps × tread × riser).
+L-shape and other shapes; multi-rectangle rooms; waste % *input* field (offcut % is now *reported*); per-roll-length output view; cost estimation (price per linear metre × total); RTF/DOCX/Pages export; TestFlight distribution; a more sophisticated packing algorithm; a real stair calculator (steps × tread × riser).
+
+(Implemented since original MVP scope: full graphical roll layout view; offcut area/percentage on the result and PDF.)

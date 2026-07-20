@@ -48,6 +48,17 @@ enum PDFExporter {
                 String(format: "Total carpet: %.2f m", result.totalLengthMetres),
                 font: .boldSystemFont(ofSize: 16)
             )
+            cursorY += 2
+
+            let rollWidthCM = rollWidthMetres * 100
+            draw(
+                String(
+                    format: "Offcut: %.2f m² (%.0f%%)",
+                    result.wasteAreaMetresSquared(rollWidthCM: rollWidthCM),
+                    result.wasteFraction(rollWidthCM: rollWidthCM) * 100
+                ),
+                font: .systemFont(ofSize: 13)
+            )
             cursorY += 16
 
             let headerFont = UIFont.boldSystemFont(ofSize: 14)

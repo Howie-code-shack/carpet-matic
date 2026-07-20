@@ -9,6 +9,40 @@ public struct PackingResult: Equatable, Sendable {
         Double(totalLengthCM) / 100.0
     }
 
+    /// Total area of carpet actually used by all strips, in cm².
+    public var usedAreaCM2: Int {
+        placements.reduce(0) { $0 + $1.widthCM * $1.lengthCM }
+    }
+
+    /// Area of roll consumed (roll width × total length), in cm².
+    public func rollAreaCM2(rollWidthCM: Int) -> Int {
+        rollWidthCM * totalLengthCM
+    }
+
+    /// Offcut area — roll consumed minus carpet used, in cm². Never negative.
+    public func wasteAreaCM2(rollWidthCM: Int) -> Int {
+        max(0, rollAreaCM2(rollWidthCM: rollWidthCM) - usedAreaCM2)
+    }
+
+    /// Offcut area in m².
+    public func wasteAreaMetresSquared(rollWidthCM: Int) -> Double {
+        Double(wasteAreaCM2(rollWidthCM: rollWidthCM)) / 10_000.0
+    }
+
+    /// Fraction of the consumed roll that ends up as carpet (0…1).
+    /// Returns 0 when nothing is consumed.
+    public func efficiencyFraction(rollWidthCM: Int) -> Double {
+        let rollArea = rollAreaCM2(rollWidthCM: rollWidthCM)
+        guard rollArea > 0 else { return 0 }
+        return Double(usedAreaCM2) / Double(rollArea)
+    }
+
+    /// Fraction of the consumed roll that ends up as offcut (0…1).
+    public func wasteFraction(rollWidthCM: Int) -> Double {
+        guard rollAreaCM2(rollWidthCM: rollWidthCM) > 0 else { return 0 }
+        return 1 - efficiencyFraction(rollWidthCM: rollWidthCM)
+    }
+
     public init(totalLengthCM: Int, perRoom: [RoomBreakdown], placements: [StripPlacement]) {
         self.totalLengthCM = totalLengthCM
         self.perRoom = perRoom

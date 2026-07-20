@@ -21,12 +21,31 @@ struct ResultView: View {
             } else if let result {
                 Section {
                     HStack {
-                        Text("Total")
+                        Text("Total carpet")
                             .font(.title3)
                         Spacer()
                         Text("\(DimensionFormat.metres(fromCM: result.totalLengthCM)) m")
                             .font(.title2.bold())
                             .monospacedDigit()
+                    }
+                    HStack {
+                        Text("Offcut")
+                        Spacer()
+                        Text(String(
+                            format: "%.2f m² · %.0f%%",
+                            result.wasteAreaMetresSquared(rollWidthCM: rollWidthCM),
+                            result.wasteFraction(rollWidthCM: rollWidthCM) * 100
+                        ))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                    }
+                }
+
+                Section {
+                    NavigationLink {
+                        RollLayoutView(result: result, rollWidthCM: rollWidthCM)
+                    } label: {
+                        Label("View roll layout", systemImage: "rectangle.split.3x1")
                     }
                 }
 
@@ -113,6 +132,10 @@ struct ResultView: View {
             hasher.combine(room.pileDirectionRaw)
         }
         return hasher.finalize()
+    }
+
+    private var rollWidthCM: Int {
+        project.rollWidthMetres * 100
     }
 
     private var defaultFilename: String {
