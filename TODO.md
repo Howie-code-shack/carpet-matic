@@ -20,16 +20,16 @@ The engine + Xcode app skeleton are in place; the input model is **room dimensio
 
 Goal: a buildable, signed, syncing skeleton on both devices.
 
-- [ ] Enrol in the Apple Developer Program ($99/yr).
-- [ ] Create the Xcode project: SwiftUI multiplatform App template; iOS 17+ / macOS 14+ deployment targets.
-- [ ] Set bundle identifier; configure signing for iOS and Mac destinations.
-- [ ] Create a CloudKit container in the Apple Developer portal.
-- [ ] Add the iCloud entitlement; enable CloudKit; select the container.
+- [x] Enrol in the Apple Developer Program ($99/yr).
+- [x] Create the Xcode project: SwiftUI multiplatform App template; iOS 17+ / macOS 14+ deployment targets.
+- [x] Set bundle identifier; configure signing (team `Z8C4HC36L6`, automatic; device registered, profile issued).
+- [x] Create a CloudKit container (`iCloud.howie.one.CarpetMatic`; auto-created via automatic provisioning).
+- [x] Add the iCloud entitlement; enable CloudKit; select the container (`CarpetMatic/CarpetMatic.entitlements`).
 - [x] Add SwiftData `@Model` types: `ProjectModel`, `RoomModel`; enums `RoomKind`, `PileDirection`.
-- [ ] Configure `ModelContainer` with `.private(.automatic)` CloudKit database in `CarpetMaticApp.swift`.
-- [ ] Verify the schema deploys to the CloudKit dashboard (development environment).
-- [ ] Stub a placeholder `NavigationStack` (iPhone) / `NavigationSplitView` (Mac) skeleton.
-- [ ] Smoke-test: build and run on the user's iPhone (USB) and Mac.
+- [x] Configure `ModelContainer` with `.private(...)` CloudKit database in `CarpetMaticApp.swift`.
+- [ ] Verify the schema deploys to the CloudKit dashboard (development environment) — happens on first run signed into iCloud.
+- [x] Stub a placeholder `NavigationStack` (iPhone) / `NavigationSplitView` (Mac) skeleton.
+- [x] Smoke-test: builds, signs, and installs on the user's iPhone (Howie iPhone Air).
 
 ## Phase 1 — MVP
 

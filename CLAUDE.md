@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 As of 2026-04-29:
 
 - **`Engine/`** — a Swift Package (`CarpetMaticEngine`) with the bin-packing engine and unit tests. Pure value types, no Apple framework dependencies beyond `Foundation`. Platform-agnostic, tested with `swift test`.
-- **`CarpetMatic/`** — the Xcode app (iOS, runs on Mac as "Designed for iPad"). Uses **SwiftData with a local store** for now. CloudKit sync is **not yet wired up** — that's a one-line `ModelContainer` config change once the user's paid Apple Developer account is approved.
+- **`CarpetMatic/`** — the Xcode app (iOS, runs on Mac as "Designed for iPad"). Uses **SwiftData with CloudKit sync** (private database, container `iCloud.howie.one.CarpetMatic`). Wired up 2026-07-19: `CarpetMaticApp` builds a `ModelContainer` with `cloudKitDatabase: .private(...)`; entitlements (`CarpetMatic/CarpetMatic.entitlements`) grant iCloud/CloudKit + `aps-environment`; `UIBackgroundModes` includes `remote-notification`. Signing team `Z8C4HC36L6`. Still to do before a production/TestFlight build: deploy the CloudKit schema to the **Production** environment in the CloudKit Console (dev schema auto-creates on first run; production builds can't create schema).
 - The Xcode project uses **synchronized groups** (Xcode 15+ feature) — files added to `CarpetMatic/CarpetMatic/` are auto-included; you don't need to edit `project.pbxproj`.
 
 ## Commands
