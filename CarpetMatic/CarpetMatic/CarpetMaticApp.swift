@@ -4,6 +4,7 @@ import SwiftData
 @main
 struct CarpetMaticApp: App {
     let modelContainer: ModelContainer
+    @State private var store = StoreManager()
 
     init() {
         let schema = Schema([ProjectModel.self, RoomModel.self, BusinessProfileModel.self])
@@ -22,6 +23,7 @@ struct CarpetMaticApp: App {
     var body: some Scene {
         WindowGroup {
             ProjectListView()
+                .environment(store)
         }
         .modelContainer(modelContainer)
     }

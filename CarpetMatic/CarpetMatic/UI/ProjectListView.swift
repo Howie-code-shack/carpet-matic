@@ -4,11 +4,13 @@ import CarpetMaticEngine
 
 struct ProjectListView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(StoreManager.self) private var store
     @Query(sort: \ProjectModel.createdAt, order: .reverse)
     private var projects: [ProjectModel]
 
     @State private var showingNewProjectSheet = false
     @State private var showingSettings = false
+    @State private var showingPaywall = false
     @State private var pendingDeletion: IndexSet?
 
     var body: some View {
@@ -66,7 +68,12 @@ struct ProjectListView: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        showingNewProjectSheet = true
+                        // Free tier: one project. Pro: unlimited.
+                        if store.isPro || projects.isEmpty {
+                            showingNewProjectSheet = true
+                        } else {
+                            showingPaywall = true
+                        }
                     } label: {
                         Label("New Project", systemImage: "plus")
                     }
@@ -74,6 +81,9 @@ struct ProjectListView: View {
             }
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
+            }
+            .sheet(isPresented: $showingPaywall) {
+                PaywallView()
             }
             .sheet(isPresented: $showingNewProjectSheet) {
                 NewProjectSheet { name, rollWidth in

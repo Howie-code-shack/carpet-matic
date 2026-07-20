@@ -1,0 +1,34 @@
+{
+  "identifier" : "8F4E2C1A-0B7D-4A9E-9C3F-CM0STOREKIT01",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "19.99",
+      "familyShareable" : false,
+      "internalID" : "8F4E2C1A-0B7D-4A9E-9C3F-CM0PRODUCT001",
+      "localizations" : [
+        {
+          "description" : "Unlimited projects, PDF export and sharing.",
+          "displayName" : "CarpetMatic Pro",
+          "locale" : "en_GB"
+        }
+      ],
+      "productID" : "howie.one.CarpetMatic.pro",
+      "referenceName" : "Pro Unlock",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_locale" : "en_GB",
+    "_storefront" : "GBR"
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

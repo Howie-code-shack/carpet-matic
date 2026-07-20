@@ -6,8 +6,10 @@ import CarpetMaticEngine
 struct ResultView: View {
     let project: ProjectModel
 
+    @Environment(StoreManager.self) private var store
     @Query(sort: \BusinessProfileModel.createdAt)
     private var businessProfiles: [BusinessProfileModel]
+    @State private var showingPaywall = false
 
     @State private var result: PackingResult?
     @State private var errorMessage: String?
@@ -115,9 +117,23 @@ struct ResultView: View {
 
                 Section {
                     Button {
-                        prepareExport()
+                        if store.isPro {
+                            prepareExport()
+                        } else {
+                            showingPaywall = true
+                        }
                     } label: {
-                        Label("Export PDF", systemImage: "square.and.arrow.up")
+                        HStack {
+                            Label("Export PDF", systemImage: "square.and.arrow.up")
+                            if !store.isPro {
+                                Spacer()
+                                Text("Pro")
+                                    .font(.caption.bold())
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 2)
+                                    .background(Color.accentColor.opacity(0.15), in: Capsule())
+                            }
+                        }
                     }
                 }
             } else {
@@ -130,6 +146,9 @@ struct ResultView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task(id: calculationFingerprint) {
             recalculate()
+        }
+        .sheet(isPresented: $showingPaywall) {
+            PaywallView()
         }
         .fileExporter(
             isPresented: $showingExporter,
