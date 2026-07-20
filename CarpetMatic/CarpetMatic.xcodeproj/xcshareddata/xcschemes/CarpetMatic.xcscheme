@@ -49,7 +49,7 @@
          </BuildableReference>
       </BuildableProductRunnable>
       <StoreKitConfigurationFileReference
-         identifier = "../CarpetMatic.storekit">
+         identifier = "../../../CarpetMatic.storekit">
       </StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction
