@@ -26,19 +26,23 @@ struct RoomDetailView: View {
                     TextField("e.g. 4.50", text: $widthText)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
+                        .accessibilityLabel("Room width in metres")
                 }
                 HStack {
                     Text("Length")
                     TextField("e.g. 5.20", text: $lengthText)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
+                        .accessibilityLabel("Room length in metres")
                 }
             }
 
             Section {
                 Picker("Pile direction", selection: $room.pileDirection) {
                     ForEach(PileDirection.allCases, id: \.self) { d in
-                        Text(arrow(for: d)).tag(d)
+                        Text(arrow(for: d))
+                            .accessibilityLabel("Pile \(d.rawValue)")
+                            .tag(d)
                     }
                 }
                 .pickerStyle(.segmented)

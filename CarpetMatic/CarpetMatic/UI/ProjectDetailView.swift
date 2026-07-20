@@ -28,6 +28,7 @@ struct ProjectDetailView: View {
                     TextField("optional", text: $priceText)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
+                        .accessibilityLabel("Price per linear metre, optional")
                 }
             }
 
@@ -189,12 +190,14 @@ private struct NewRoomSheet: View {
                         TextField("e.g. 4.50", text: $widthText)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
+                            .accessibilityLabel("Room width in metres")
                     }
                     HStack {
                         Text("Length")
                         TextField("e.g. 5.20", text: $lengthText)
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
+                            .accessibilityLabel("Room length in metres")
                     }
                 }
                 Section("Type") {

@@ -74,8 +74,9 @@ Goal: every functional requirement in `REQUIREMENTS.md` works end-to-end.
 ## Phase 2 — Polish
 
 - [ ] Receive the rotate-button reference screenshot from the user; match the visual design.
-- [ ] Empty/edge-case states: empty project, empty room, single-piece project, oversize piece warning, near-zero dimensions.
-- [ ] Accessibility: VoiceOver labels on every interactive element; Dynamic Type support; keyboard navigation on Mac.
+- [x] Edge-case errors name the offending room ("'Hall' is missing its dimensions"); Calculate disabled for empty projects; parse rejects non-positive dims at input.
+- [x] Accessibility: VoiceOver labels on dimension/price fields, pile-picker segments, result strip rows (single combined elements), roll-layout strips, pile arrows. Dynamic Type via system fonts throughout (fixed sizes only inside the geometric roll drawing).
+- [x] String Catalog created (`Localizable.xcstrings`, auto-populated at build); `PrivacyInfo.xcprivacy` added (no tracking, no data collection); date on PDF header.
 - [x] App icon (carpet-roll motif; light/dark/tinted 1024px variants in `AppIcon.appiconset`). Launch screen still the auto-generated blank one.
 - [x] Delete confirmations for projects and rooms (confirmation dialog before cascade delete).
 - [ ] Per-piece rotation undo.

@@ -71,7 +71,8 @@ enum PDFExporter {
             )
             cursorY += 12
 
-            draw("Roll width: \(rollWidthMetres) m", font: .systemFont(ofSize: 14))
+            let dateString = Date.now.formatted(date: .abbreviated, time: .omitted)
+            draw("Roll width: \(rollWidthMetres) m  ·  \(dateString)", font: .systemFont(ofSize: 14))
             cursorY += 4
 
             draw(

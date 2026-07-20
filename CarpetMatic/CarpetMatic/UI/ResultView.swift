@@ -71,6 +71,10 @@ struct ResultView: View {
                                 Spacer()
                                 PileArrowView(direction: strip.pileDirection)
                             }
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(
+                                "Strip \(DimensionFormat.metres(fromCM: strip.widthCM)) by \(DimensionFormat.metres(fromCM: strip.lengthCM)) metres, pile \(strip.pileDirection.rawValue)"
+                            )
                         }
                     } header: {
                         HStack {
@@ -195,7 +199,13 @@ struct ResultView: View {
         switch error {
         case .invalidRollWidthMetres(let m):
             return "Invalid roll width: \(m) m. Must be one of 1, 2, 3, 4, 5."
-        case .invalidRoomDimensions:
+        case .invalidRoomDimensions(let roomID):
+            let name = (project.rooms ?? [])
+                .first { $0.id == roomID }
+                .map { $0.name.isEmpty ? "Untitled" : $0.name }
+            if let name {
+                return "“\(name)” is missing its dimensions. Enter both width and length."
+            }
             return "A room has invalid dimensions. Edit and enter both width and length."
         }
     }
