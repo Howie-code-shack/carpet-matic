@@ -73,21 +73,40 @@ public struct Project: Identifiable, Hashable, Sendable {
     public let id: UUID
     public var name: String
     public var rollWidthMetres: Int
+    /// Pattern repeat in cm. When > 0, every strip's cut length is rounded up
+    /// to the next repeat multiple so each cut can start on a pattern boundary.
+    /// 0 (default) = plain carpet, no padding.
+    public var patternRepeatCM: Int
     public var rooms: [Room]
 
     public init(
         id: UUID = UUID(),
         name: String,
         rollWidthMetres: Int,
+        patternRepeatCM: Int = 0,
         rooms: [Room] = []
     ) {
         self.id = id
         self.name = name
         self.rollWidthMetres = rollWidthMetres
+        self.patternRepeatCM = patternRepeatCM
         self.rooms = rooms
     }
 
     public var rollWidthCM: Int { rollWidthMetres * 100 }
+
+    /// Total floor area of all rooms (underlay requirement), in cm².
+    public var totalRoomAreaCM2: Int {
+        rooms.reduce(0) { $0 + $1.widthCM * $1.lengthCM }
+    }
+
+    /// Total perimeter of rectangle rooms (gripper requirement), in cm.
+    /// Stairs are excluded — stair gripper is per-step and out of scope here.
+    public var gripperPerimeterCM: Int {
+        rooms
+            .filter { $0.kind == .rectangle }
+            .reduce(0) { $0 + 2 * ($1.widthCM + $1.lengthCM) }
+    }
 }
 
 /// Internal helper exposed because both the engine and consumers compute strip counts.

@@ -9,6 +9,7 @@ struct ProjectDetailView: View {
     @State private var showingNewRoomSheet = false
     @State private var pendingRoomDeletion: IndexSet?
     @State private var priceText: String = ""
+    @State private var patternRepeatText: String = ""
 
     private var rooms: [RoomModel] {
         project.rooms ?? []
@@ -16,7 +17,7 @@ struct ProjectDetailView: View {
 
     var body: some View {
         Form {
-            Section("Project") {
+            Section {
                 TextField("Name", text: $project.name)
                 Picker("Roll width", selection: $project.rollWidthMetres) {
                     ForEach(CarpetMaticEngine.Project.allowedRollWidthsMetres, id: \.self) { m in
@@ -29,6 +30,19 @@ struct ProjectDetailView: View {
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                         .accessibilityLabel("Price per linear metre, optional")
+                }
+                HStack {
+                    Text("Pattern repeat (cm)")
+                    TextField("0 = plain", text: $patternRepeatText)
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                        .accessibilityLabel("Pattern repeat in centimetres, zero for plain carpet")
+                }
+            } header: {
+                Text("Project")
+            } footer: {
+                if project.patternRepeatCM > 0 {
+                    Text("Each cut is rounded up to the next \(project.patternRepeatCM) cm so every strip starts on a pattern boundary.")
                 }
             }
 
@@ -71,16 +85,24 @@ struct ProjectDetailView: View {
         .navigationTitle(project.name.isEmpty ? "Project" : project.name)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            seedPriceField()
+            seedProjectFields()
         }
         .onChange(of: project.id) {
-            seedPriceField()
+            seedProjectFields()
         }
         .onChange(of: priceText) { _, new in
             if new.trimmingCharacters(in: .whitespaces).isEmpty {
                 project.pricePerMetrePence = 0
             } else if let pence = MoneyFormat.parsePoundsToPence(new) {
                 project.pricePerMetrePence = pence
+            }
+        }
+        .onChange(of: patternRepeatText) { _, new in
+            let trimmed = new.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty {
+                project.patternRepeatCM = 0
+            } else if let cm = Int(trimmed), cm >= 0 {
+                project.patternRepeatCM = cm
             }
         }
         .confirmationDialog(
@@ -121,9 +143,12 @@ struct ProjectDetailView: View {
         }
     }
 
-    private func seedPriceField() {
+    private func seedProjectFields() {
         priceText = project.pricePerMetrePence > 0
             ? MoneyFormat.pounds(fromPence: project.pricePerMetrePence)
+            : ""
+        patternRepeatText = project.patternRepeatCM > 0
+            ? String(project.patternRepeatCM)
             : ""
     }
 

@@ -8,6 +8,9 @@ struct RoomDetailView: View {
 
     @State private var widthText: String = ""
     @State private var lengthText: String = ""
+    @State private var treadText: String = ""
+    @State private var riserText: String = ""
+    @State private var nosingText: String = ""
 
     var body: some View {
         Form {
@@ -34,6 +37,52 @@ struct RoomDetailView: View {
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                         .accessibilityLabel("Room length in metres")
+                }
+            }
+
+            if room.kind == .stairs {
+                Section {
+                    Stepper(
+                        "Steps: \(room.stairSteps)",
+                        value: $room.stairSteps,
+                        in: 0...60
+                    )
+                    HStack {
+                        Text("Tread depth (cm)")
+                        TextField("e.g. 23", text: $treadText)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .accessibilityLabel("Tread depth in centimetres")
+                    }
+                    HStack {
+                        Text("Riser height (cm)")
+                        TextField("e.g. 20", text: $riserText)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .accessibilityLabel("Riser height in centimetres")
+                    }
+                    HStack {
+                        Text("Nosing allowance (cm)")
+                        TextField("e.g. 4", text: $nosingText)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .accessibilityLabel("Nosing allowance in centimetres per step")
+                    }
+                    if let totalCM = stairTotalCM {
+                        Button {
+                            room.lengthCM = totalCM
+                            lengthText = DimensionFormat.metres(fromCM: totalCM)
+                        } label: {
+                            Label(
+                                "Use \(DimensionFormat.metres(fromCM: totalCM)) m as length",
+                                systemImage: "arrow.down.circle"
+                            )
+                        }
+                    }
+                } header: {
+                    Text("Stair calculator")
+                } footer: {
+                    Text("Length per step = tread + riser + nosing. Enter the stair width above.")
                 }
             }
 
@@ -86,6 +135,21 @@ struct RoomDetailView: View {
                 room.lengthCM = cm
             }
         }
+        .onChange(of: treadText) { _, new in
+            room.stairTreadCM = Int(new.trimmingCharacters(in: .whitespaces)) ?? 0
+        }
+        .onChange(of: riserText) { _, new in
+            room.stairRiserCM = Int(new.trimmingCharacters(in: .whitespaces)) ?? 0
+        }
+        .onChange(of: nosingText) { _, new in
+            room.stairNosingCM = Int(new.trimmingCharacters(in: .whitespaces)) ?? 0
+        }
+    }
+
+    /// steps × (tread + riser + nosing); nil until steps, tread, and riser are set.
+    private var stairTotalCM: Int? {
+        guard room.stairSteps > 0, room.stairTreadCM > 0, room.stairRiserCM > 0 else { return nil }
+        return room.stairSteps * (room.stairTreadCM + room.stairRiserCM + max(0, room.stairNosingCM))
     }
 
     @ViewBuilder
@@ -106,6 +170,9 @@ struct RoomDetailView: View {
     private func seedDimensionFields() {
         widthText = DimensionFormat.metres(fromCM: room.widthCM)
         lengthText = DimensionFormat.metres(fromCM: room.lengthCM)
+        treadText = room.stairTreadCM > 0 ? String(room.stairTreadCM) : ""
+        riserText = room.stairRiserCM > 0 ? String(room.stairRiserCM) : ""
+        nosingText = room.stairNosingCM > 0 ? String(room.stairNosingCM) : ""
     }
 
     private var stripsPreviewText: String? {

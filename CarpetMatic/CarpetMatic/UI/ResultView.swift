@@ -55,6 +55,27 @@ struct ResultView: View {
                 }
 
                 Section {
+                    HStack {
+                        Text("Underlay")
+                        Spacer()
+                        Text(String(format: "%.1f m²", Double(engineProject.totalRoomAreaCM2) / 10_000.0))
+                            .monospacedDigit()
+                    }
+                    HStack {
+                        Text("Gripper")
+                        Spacer()
+                        Text(String(format: "%.1f m", Double(engineProject.gripperPerimeterCM) / 100.0))
+                            .monospacedDigit()
+                    }
+                } header: {
+                    Text("Materials")
+                } footer: {
+                    if (project.rooms ?? []).contains(where: { $0.kind == .stairs }) {
+                        Text("Gripper excludes stairs — measure per step.")
+                    }
+                }
+
+                Section {
                     NavigationLink {
                         RollLayoutView(result: result, rollWidthCM: rollWidthCM)
                     } label: {
@@ -139,6 +160,7 @@ struct ResultView: View {
     private var calculationFingerprint: Int {
         var hasher = Hasher()
         hasher.combine(project.rollWidthMetres)
+        hasher.combine(project.patternRepeatCM)
         let rooms = (project.rooms ?? []).sorted { $0.id.uuidString < $1.id.uuidString }
         for room in rooms {
             hasher.combine(room.id)
@@ -153,6 +175,10 @@ struct ResultView: View {
 
     private var rollWidthCM: Int {
         project.rollWidthMetres * 100
+    }
+
+    private var engineProject: CarpetMaticEngine.Project {
+        project.toEngine()
     }
 
     /// price/m (pence) × length (cm) ÷ 100, rounded to the nearest penny.
@@ -184,12 +210,16 @@ struct ResultView: View {
         let branding = businessProfiles.first.map {
             PDFExporter.Branding(businessName: $0.businessName, phone: $0.phone, email: $0.email)
         }
+        let engineProject = engineProject
         let data = PDFExporter.makePDF(
             projectName: project.name,
             rollWidthMetres: project.rollWidthMetres,
             result: result,
             pricePerMetrePence: project.pricePerMetrePence,
-            branding: branding
+            branding: branding,
+            patternRepeatCM: project.patternRepeatCM,
+            underlayAreaCM2: engineProject.totalRoomAreaCM2,
+            gripperCM: engineProject.gripperPerimeterCM
         )
         exportDocument = PDFExportDocument(data: data)
         showingExporter = true

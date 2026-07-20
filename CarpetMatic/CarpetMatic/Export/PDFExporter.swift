@@ -25,7 +25,10 @@ enum PDFExporter {
         rollWidthMetres: Int,
         result: PackingResult,
         pricePerMetrePence: Int = 0,
-        branding: Branding? = nil
+        branding: Branding? = nil,
+        patternRepeatCM: Int = 0,
+        underlayAreaCM2: Int = 0,
+        gripperCM: Int = 0
     ) -> Data {
         let pageRect = CGRect(x: 0, y: 0, width: 595, height: 842)  // A4 at 72 dpi
         let margin: CGFloat = 48
@@ -72,7 +75,11 @@ enum PDFExporter {
             cursorY += 12
 
             let dateString = Date.now.formatted(date: .abbreviated, time: .omitted)
-            draw("Roll width: \(rollWidthMetres) m  ·  \(dateString)", font: .systemFont(ofSize: 14))
+            var specLine = "Roll width: \(rollWidthMetres) m  ·  \(dateString)"
+            if patternRepeatCM > 0 {
+                specLine += "  ·  Pattern repeat: \(patternRepeatCM) cm"
+            }
+            draw(specLine, font: .systemFont(ofSize: 14))
             cursorY += 4
 
             draw(
@@ -90,6 +97,15 @@ enum PDFExporter {
                 ),
                 font: .systemFont(ofSize: 13)
             )
+
+            if underlayAreaCM2 > 0 {
+                cursorY += 2
+                var materials = String(format: "Underlay: %.1f m²", Double(underlayAreaCM2) / 10_000.0)
+                if gripperCM > 0 {
+                    materials += String(format: "  ·  Gripper: %.1f m", Double(gripperCM) / 100.0)
+                }
+                draw(materials, font: .systemFont(ofSize: 13))
+            }
 
             if pricePerMetrePence > 0 {
                 cursorY += 2

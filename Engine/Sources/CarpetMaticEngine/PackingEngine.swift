@@ -16,12 +16,23 @@ public enum PackingEngine {
             }
         }
 
-        // Step 2: generate strips for every room.
+        // Step 2: generate strips for every room. With a pattern repeat set,
+        // each strip's cut length rounds up to the next repeat multiple so
+        // every cut can start on a pattern boundary.
+        let repeatCM = max(0, project.patternRepeatCM)
         var queue: [StripWithContext] = []
         for room in project.rooms {
             let strips = strips(for: room, rollWidthCM: rollWidthCM)
             for strip in strips {
-                queue.append(StripWithContext(strip: strip, roomID: room.id))
+                let padded = repeatCM > 0
+                    ? Piece(
+                        id: strip.id,
+                        widthCM: strip.widthCM,
+                        lengthCM: ceilDiv(strip.lengthCM, repeatCM) * repeatCM,
+                        pileDirection: strip.pileDirection
+                    )
+                    : strip
+                queue.append(StripWithContext(strip: padded, roomID: room.id))
             }
         }
 

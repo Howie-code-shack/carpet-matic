@@ -67,6 +67,6 @@ Apple-platform (iPhone + Mac) app for carpet fitters. The user enters **room dim
 
 ## Future backlog
 
-L-shape and other shapes; multi-rectangle rooms; waste % *input* field (offcut % is now *reported*); per-roll-length output view; RTF/DOCX/Pages export; TestFlight distribution; a more sophisticated packing algorithm; a real stair calculator (steps × tread × riser).
+L-shape and other shapes; multi-rectangle rooms; waste % *input* field (offcut % is now *reported*); per-roll-length output view; RTF/DOCX/Pages export; TestFlight distribution; a more sophisticated packing algorithm; seam positions marked inside the room layout; offcut reuse across jobs; imperial units.
 
-(Implemented since original MVP scope: full graphical roll layout view; offcut area/percentage on the result and PDF; cost estimate from optional price per linear metre.)
+(Implemented since original MVP scope: full graphical roll layout view; offcut area/percentage; cost estimate from optional price per linear metre; pattern repeat allowance — cuts round up to the repeat multiple; stair calculator — steps × (tread + riser + nosing) fills the stairs room length; underlay m² and gripper metres on result and PDF.)

@@ -7,6 +7,7 @@ extension ProjectModel {
             id: id,
             name: name,
             rollWidthMetres: rollWidthMetres,
+            patternRepeatCM: patternRepeatCM,
             rooms: (rooms ?? []).map { $0.toEngine() }
         )
     }

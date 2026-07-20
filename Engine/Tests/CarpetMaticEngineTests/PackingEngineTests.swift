@@ -407,6 +407,76 @@ final class PackingEngineTests: XCTestCase {
         XCTAssertEqual(result.wasteFraction(rollWidthCM: 400), 0)
     }
 
+    // MARK: - Pattern repeat
+
+    func testPatternRepeatPadsStripLengthToNextMultiple() throws {
+        // 3m × 4.10m room, repeat 40cm → cut length rounds 410 up to 440.
+        let room = Room(name: "Lounge", widthCM: 300, lengthCM: 410, pileDirection: .up)
+        let project = Project(name: "P", rollWidthMetres: 4, patternRepeatCM: 40, rooms: [room])
+        let result = try PackingEngine.pack(project)
+        XCTAssertEqual(result.placements.count, 1)
+        XCTAssertEqual(result.placements[0].lengthCM, 440)
+        XCTAssertEqual(result.totalLengthCM, 440)
+    }
+
+    func testPatternRepeatExactMultipleUnchanged() throws {
+        // 4.00m cut on a 40cm repeat is already on a boundary — no padding.
+        let room = Room(name: "R", widthCM: 300, lengthCM: 400, pileDirection: .up)
+        let project = Project(name: "P", rollWidthMetres: 4, patternRepeatCM: 40, rooms: [room])
+        let result = try PackingEngine.pack(project)
+        XCTAssertEqual(result.totalLengthCM, 400)
+    }
+
+    func testZeroPatternRepeatLeavesLengthsAlone() throws {
+        let room = Room(name: "R", widthCM: 300, lengthCM: 410, pileDirection: .up)
+        let project = Project(name: "P", rollWidthMetres: 4, patternRepeatCM: 0, rooms: [room])
+        let result = try PackingEngine.pack(project)
+        XCTAssertEqual(result.totalLengthCM, 410)
+    }
+
+    func testPatternRepeatPadsEveryStripAndKeepsGeometryValid() throws {
+        // 5.3m-wide room splits into 2 strips; both cut lengths pad 410 → 450
+        // on a 90cm repeat. Widths are untouched.
+        let room = Room(name: "Big", widthCM: 530, lengthCM: 410, pileDirection: .up)
+        let hall = Room(name: "Hall", widthCM: 460, lengthCM: 300, pileDirection: .up)
+        let project = Project(name: "P", rollWidthMetres: 5, patternRepeatCM: 90, rooms: [room, hall])
+        let result = try PackingEngine.pack(project)
+        XCTAssertTrue(result.placements.allSatisfy { $0.lengthCM % 90 == 0 })
+        XCTAssertEqual(
+            result.placements.filter { $0.roomID == room.id }.map(\.widthCM).sorted(),
+            [30, 500]
+        )
+        assertPlacementsValid(result, rollWidthCM: 500)
+    }
+
+    func testNegativePatternRepeatTreatedAsNone() throws {
+        let room = Room(name: "R", widthCM: 300, lengthCM: 410, pileDirection: .up)
+        let project = Project(name: "P", rollWidthMetres: 4, patternRepeatCM: -25, rooms: [room])
+        let result = try PackingEngine.pack(project)
+        XCTAssertEqual(result.totalLengthCM, 410)
+    }
+
+    // MARK: - Underlay / gripper quantities
+
+    func testTotalRoomAreaSumsAllRoomsIncludingStairs() {
+        let project = Project(name: "P", rollWidthMetres: 4, rooms: [
+            Room(name: "Lounge", widthCM: 300, lengthCM: 500),
+            Room(name: "Stairs", widthCM: 70, lengthCM: 600, kind: .stairs),
+        ])
+        // 150000 + 42000 = 192000 cm² = 19.2 m²
+        XCTAssertEqual(project.totalRoomAreaCM2, 192_000)
+    }
+
+    func testGripperPerimeterExcludesStairs() {
+        let project = Project(name: "P", rollWidthMetres: 4, rooms: [
+            Room(name: "Lounge", widthCM: 300, lengthCM: 500),
+            Room(name: "Hall", widthCM: 110, lengthCM: 480),
+            Room(name: "Stairs", widthCM: 70, lengthCM: 600, kind: .stairs),
+        ])
+        // 2×(300+500) + 2×(110+480) = 1600 + 1180 = 2780 cm; stairs excluded.
+        XCTAssertEqual(project.gripperPerimeterCM, 2_780)
+    }
+
     // MARK: - Pile rotation utility (kept from earlier)
 
     func testPileRotationCycleIsConsistent() {

@@ -11,6 +11,13 @@ final class RoomModel {
     var kindRaw: String = RoomKind.rectangle.rawValue
     var pileDirectionRaw: String = PileDirection.up.rawValue
 
+    // Stair-calculator inputs (only meaningful when kind == .stairs).
+    // 0 = not set. CloudKit-safe defaults; the calculator writes lengthCM.
+    var stairSteps: Int = 0
+    var stairTreadCM: Int = 0
+    var stairRiserCM: Int = 0
+    var stairNosingCM: Int = 0
+
     var project: ProjectModel?
 
     var kind: RoomKind {
